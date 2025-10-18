@@ -4,13 +4,17 @@ import { useEffect } from 'react';
 import { LoginPage } from '../auth/pages/LoginPage';
 import { RegisterPage } from '../auth/pages/RegisterPage';
 import { CalendarPage } from '../calendar/pages/CalendarPage';
-import { useAuthStore } from '../hooks';
+import { useAuthStore } from '../hooks/useAuthStore';
 
 export const AppRouter = () => {
-  const { status, checkAuthToken } = useAuthStore();
+  const { status, checkAuthToken, startLogout } = useAuthStore();
 
   useEffect(() => {
     checkAuthToken();
+  }, []);
+
+  useEffect(() => {
+    startLogout();
   }, []);
 
   if (status === 'checking') {
