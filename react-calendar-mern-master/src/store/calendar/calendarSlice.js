@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit'; 
 
 export const calendarSlice = createSlice({
   name: 'calendar',
@@ -17,6 +17,7 @@ export const calendarSlice = createSlice({
     // ----------------------------
     // 🔹 이벤트 관련 리듀서
     // ----------------------------
+
     onSetActiveEvent: (state, { payload }) => {
       state.activeEvent = payload;
     },
@@ -26,18 +27,27 @@ export const calendarSlice = createSlice({
       state.activeEvent = null;
     },
 
+    // ✅ 기존 이벤트 교체 (드래그/리사이즈 시 즉시 반영 가능)
     onUpdateEvent: (state, { payload }) => {
       state.events = state.events.map((event) =>
-        event.id === payload.id ? payload : event
+        (event.id || event._id) === (payload.id || payload._id)
+          ? { ...event, ...payload }
+          : event
       );
     },
 
-    onDeleteEvent: (state) => {
-      if (state.activeEvent) {
+    onDeleteEvent: (state, { payload }) => {
+      if (payload) {
         state.events = state.events.filter(
-          (event) => event.id !== state.activeEvent.id
+          (event) => (event.id || event._id) !== payload
         );
-        state.activeEvent = null;
+
+        if (
+          state.activeEvent &&
+          (state.activeEvent.id || state.activeEvent._id) === payload
+        ) {
+          state.activeEvent = null;
+        }
       }
     },
 
@@ -62,30 +72,52 @@ export const calendarSlice = createSlice({
     },
 
     // ----------------------------
-    // 🔹 캘린더 관련 리듀서 (새로 추가)
+    // 🔹 캘린더 관련 리듀서
     // ----------------------------
 
-    // ✅ 새 캘린더 추가
     onAddCalendar: (state, { payload }) => {
       state.calendars.push(payload);
     },
 
-    // ✅ 캘린더 삭제
-    onDeleteCalendar: (state, { payload }) => {
-      state.calendars = state.calendars.filter((c) => c.id !== payload);
-      if (state.activeCalendar?.id === payload) {
+    onDeleteCalendar: (state, { payload: calendarIdToDelete }) => {
+      state.calendars = state.calendars.filter(
+        (c) => (c.id || c._id) !== calendarIdToDelete
+      );
+
+      state.events = state.events.filter(
+        (event) => (event.calendar.id || event.calendar._id) !== calendarIdToDelete
+      );
+
+      if ((state.activeCalendar?.id || state.activeCalendar?._id) === calendarIdToDelete) {
         state.activeCalendar = null;
       }
     },
 
-    // ✅ 캘린더 선택
     onSetActiveCalendar: (state, { payload }) => {
       state.activeCalendar = payload;
     },
 
-    // ✅ 캘린더 초기 로드
     onLoadCalendars: (state, { payload = [] }) => {
       state.calendars = payload;
+    },
+
+    onUpdateCalendar: (state, { payload: updatedCalendar }) => {
+      const calendarId = updatedCalendar.id || updatedCalendar._id;
+
+      state.calendars = state.calendars.map((calendar) =>
+        (calendar.id || calendar._id) === calendarId ? updatedCalendar : calendar
+      );
+
+      state.events = state.events.map((event) => {
+        if ((event.calendar.id || event.calendar._id) === calendarId) {
+          return { ...event, calendar: updatedCalendar };
+        }
+        return event;
+      });
+
+      if ((state.activeCalendar?.id || state.activeCalendar?._id) === calendarId) {
+        state.activeCalendar = updatedCalendar;
+      }
     },
   },
 });
@@ -104,4 +136,7 @@ export const {
   onDeleteCalendar,
   onSetActiveCalendar,
   onLoadCalendars,
+  onUpdateCalendar,
 } = calendarSlice.actions;
+
+export default calendarSlice.reducer;

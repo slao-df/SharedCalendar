@@ -20,10 +20,13 @@
     "react-big-calendar": "^1.6.9",
     "react-calendar": "^6.0.0",
     "react-datepicker": "^4.25.0",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.2.0",
     "react-modal": "^3.16.1",
     "react-redux": "^8.0.5",
     "react-router-dom": "6",
+    "redux-persist": "^6.0.0",
     "sweetalert2": "^11.7.5"
   },
   "devDependencies": {

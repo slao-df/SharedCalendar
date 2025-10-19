@@ -99,7 +99,9 @@
 .modal-buttons {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 10px;
+  margin-top: 25px;
 }
 
 .save-btn {
@@ -159,10 +161,36 @@
   transition: all 0.2s;
 }
 
-.delete-btn:hover {
-  background: #ff5e5e;
-  border-color: #ff5e5e;
-  color: #fff;
+.modal-btn.danger {
+  background-color: #d9534f; /* 붉은색 배경 */
+  color: white;
+  border-color: #d43f3a; /* 약간 더 진한 테두리 */
+}
+.modal-btn.danger:hover {
+  background-color: #c9302c;
+  border-color: #ac2925;
+}
+
+/* 취소 버튼 (.ghost) */
+.modal-btn.ghost {
+  background-color: transparent;
+  color: #6c757d;
+  border-color: #ced4da;
+}
+.modal-btn.ghost:hover {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+/* 저장 버튼 (.primary) */
+.modal-btn.primary {
+  background-color: #4e73df; /* 파란색 배경 */
+  color: white;
+  border-color: #4e73df;
+}
+.modal-btn.primary:hover {
+  background-color: #3d5fc4;
+  border-color: #3d5fc4;
 }
 /* 🎨 컬러 팔레트 팝업 */
 .color-picker-popup {

@@ -20,7 +20,12 @@ const EventSchema = Schema({
   },
   user: {
     type: Schema.Types.ObjectId,
-    ref: 'User', // 사용자 모델 참조
+    ref: 'User',
+    required: true,
+  },
+  calendar: {
+    type: Schema.Types.ObjectId,
+    ref: 'Calendar',
     required: true,
   },
 });

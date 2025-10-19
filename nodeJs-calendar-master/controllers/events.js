@@ -3,13 +3,18 @@ const { response } = require('express');
 const Event = require('../models/Event');
 
 // 🔹 모든 이벤트 조회
-const getEvents = async (req, res = response) => {
-  const events = await Event.find().populate('user', 'name');
+const getEvents = async (req, res) => {
+  try {
+    const events = await Event.find({ user: req.uid })
+      .populate('user', 'name') // user 필드에서 'name'만 가져오기
+      .populate('calendar', 'name color'); // calendar 필드에서 'name'과 'color' 가져오기
+    // 👆👆👆
 
-  res.json({
-    ok: true,
-    events,
-  });
+    res.json({ events }); // 프론트엔드로 events 전송
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ msg: '서버 오류 발생' });
+  }
 };
 
 // 🔹 새 이벤트 생성
@@ -85,41 +90,36 @@ const updateEvent = async (req, res = response) => {
 };
 
 // 🔹 이벤트 삭제
-const deleteEvent = async (req, res = response) => {
-  const eventId = req.params.id;
-  const uid = req.uid;
+const deleteEvent = async (req, res) => {
+    const eventId = req.params.id;
+    const userId = req.uid; // (토큰에서 온 사용자 ID)
 
-  try {
-    const event = await Event.findById(eventId);
+    try {
+      const event = await Event.findById(eventId); // (여긴 이제 통과)
 
-    // 이벤트가 존재하지 않을 경우
-    if (!event) {
-      return res.status(404).json({
-        ok: false,
-        msg: '해당 ID의 이벤트가 존재하지 않습니다.',
-      });
+      if (!event) {
+        return res.status(404).json({ msg: '이벤트를 찾을 수 없습니다.' });
+      }
+
+      // ❗️❗️❗️
+      // ❗️ 바로 이 부분에서 새로운 오류가 발생하고 있습니다.
+      // ❗️ (예: event.user가 없는데 toString()을 호출 / userId가 없음)
+      // ❗️❗️❗️
+      if (event.user.toString() !== userId) {
+        return res.status(401).json({ msg: '권한이 없습니다.' });
+      }
+
+      await Event.findByIdAndDelete(eventId);
+      res.json({ msg: '이벤트 삭제됨' });
+      
+    } catch (error) {
+      // ❗️ 지금 이 catch 블록이 실행되고 500 에러를 보낸 것입니다.
+      console.log(error); // 👈 백엔드 서버 터미널에 새 오류가 찍혔습니다.
+      return res.status(500).json({ msg: 'Hable con el administrador' });
     }
+  };
 
-    // 다른 사용자가 삭제하려는 경우
-    if (event.user.toString() !== uid) {
-      return res.status(401).json({
-        ok: false,
-        msg: '이 이벤트를 삭제할 권한이 없습니다.',
-      });
-    }
 
-    // 이벤트 삭제
-    await Event.findByIdAndDelete(eventId);
-
-    res.json({ ok: true });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      ok: false,
-      msg: '서버 오류가 발생했습니다. 관리자에게 문의하세요.',
-    });
-  }
-};
 
 module.exports = {
   getEvents,

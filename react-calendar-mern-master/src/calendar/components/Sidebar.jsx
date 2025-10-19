@@ -1,90 +1,82 @@
-import { useState, useEffect, useRef } from "react";
-import Calendar from "react-calendar";
-import "react-calendar/dist/Calendar.css";
-import "./Sidebar.css";
-import { CalendarModal } from "./CalendarModal";
-import { AddCalendarModal } from "./AddCalendarModal";
-import { useCalendarStore } from "../../hooks/useCalendarStore";
+import { useState, useEffect, useRef, useMemo } from 'react';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
+import './Sidebar.css';
+import { AddCalendarModal } from './AddCalendarModal';
+import { useCalendarStore } from '../../hooks/useCalendarStore';
+import { ShareCalendarModal } from '../components/ShareCalendarModal';
 
-export const Sidebar = () => {
+
+// ✅ 1. props로 checkedState와 handleCheckboxChange 받기
+export const Sidebar = ({ setIsEventModalOpen, checkedState, handleCheckboxChange }) => {
   const [date, setDate] = useState(new Date());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [menuOpenId, setMenuOpenId] = useState(null); // ⋯ 메뉴 열린 캘린더 ID
+  const [menuOpenState, setMenuOpenState] = useState(null); // { id: string, top: number } | null
   const menuRef = useRef(null);
-  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const { calendars, startLoadingCalendars } = useCalendarStore();
+  // ✅ 2. 스토어에서 캘린더 목록 및 필요한 함수 가져오기 (startLoadingCalendars는 제거)
+  const { calendars, setActiveEvent, setActiveCalendar } = useCalendarStore();
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [selectedCalendarId, setSelectedCalendarId] = useState(null);
 
-  // ✅ 개별 캘린더 표시 여부 관리
-  const [checkedState, setCheckedState] = useState({});
-
-  // ✅ 최초 실행 시: 로컬 저장된 표시 상태 불러오기
-  useEffect(() => {
-    const saved = localStorage.getItem("calendarVisibility");
-    if (saved) {
-      try {
-        setCheckedState(JSON.parse(saved));
-      } catch {
-        console.warn("calendarVisibility 데이터 손상 → 초기화");
-        setCheckedState({});
-      }
-    }
-  }, []);
-
-  // ✅ 캘린더 목록이 바뀔 때 (새로 불러오거나 추가된 경우)
-  useEffect(() => {
-    if (calendars.length > 0) {
-      setCheckedState((prev) => {
-        const updated = { ...prev };
-        calendars.forEach((c) => {
-          const id = c.id || c._id || c.name;
-          if (updated[id] === undefined) updated[id] = true; // 기본값 true
-        });
-        return updated;
-      });
-    }
-  }, [calendars]);
-
-  // ✅ 체크 상태가 바뀔 때마다 localStorage에 저장
-  useEffect(() => {
-    localStorage.setItem("calendarVisibility", JSON.stringify(checkedState));
-  }, [checkedState]);
-
-  // ✅ 체크박스 토글
-  const handleCheckboxChange = (calendarId) => {
-    setCheckedState((prevState) => ({
-      ...prevState,
-      [calendarId]: !prevState[calendarId],
-    }));
+  const handleShareClick = (calendarId) => {
+    console.log('📤 공유하기 클릭됨', calendarId);
+    setSelectedCalendarId(calendarId);
+    setIsShareModalOpen(true);
   };
-
-  useEffect(() => {
-    startLoadingCalendars();
-  }, []);
-
-  // ✅ 메뉴 외부 클릭 시 닫기
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpenId(null);
+        setMenuOpenState(null);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // '+' 버튼 핸들러 (새 캘린더 모달 열기)
+  const handleAddCalendarClick = () => {
+    setActiveCalendar(null); // 새 캘린더 모드
+    setIsAddModalOpen(true);
+  };
 
+  // '+ 일정쓰기' 버튼 핸들러 (새 일정 모달 열기)
+  const handleNewEventClick = () => {
+    setActiveEvent(null); // 새 일정 모드
+    setIsEventModalOpen(true); // 부모에게 모달 열기 요청
+  };
 
-  const handleAddCalendarClick = () => setIsAddModalOpen(true);
+  // 검색어에 따라 캘린더 목록 필터링
+  const filteredCalendars = useMemo(
+    () =>
+      calendars.filter((cal) =>
+        cal.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [calendars, searchTerm]
+  );
 
-   const handleNewEventClick = () => {
-    setIsEventModalOpen(true);
-   };
+  // '...' 메뉴 버튼 클릭 핸들러
+  const handleMenuClick = (e, id) => {
+    const sidebarRect = e.currentTarget.closest('.sidebar-container').getBoundingClientRect();
+    const buttonRect = e.currentTarget.getBoundingClientRect();
+    const top = buttonRect.top - sidebarRect.top;
+    setMenuOpenState(prevState => (prevState?.id === id ? null : { id, top }));
+  };
+
+  // '수정 / 삭제' 팝업 버튼 클릭 핸들러
+  const handleEditCalendarClick = (calendar) => {
+    setActiveCalendar(calendar); // 수정할 캘린더 설정
+    setIsAddModalOpen(true); // 수정 모드로 모달 열기
+    setMenuOpenState(null); // 팝업 닫기
+  };
 
   return (
     <aside className="sidebar-container">
       {/* 일정쓰기 버튼 */}
-      <button className="new-event-button" onClick={handleNewEventClick}>+ 일정쓰기</button>
+      <button className="new-event-button" onClick={handleNewEventClick}>
+        + 일정쓰기
+      </button>
 
       {/* 미니 캘린더 */}
       <div className="mini-calendar-container">
@@ -93,35 +85,53 @@ export const Sidebar = () => {
           value={date}
           locale="ko-KR"
           formatDay={(locale, date) => date.getDate()}
-          next2Label="»"
-          prev2Label="«"
-          nextLabel="›"
-          prevLabel="‹"
+          next2Label="»" prev2Label="«" nextLabel="›" prevLabel="‹"
         />
+      </div>
+
+      {/* 캘린더 검색창 */}
+      <div className="calendar-search-container">
+        <i className="fas fa-search"></i>
+        <input
+          type="text"
+          className="calendar-search-input"
+          placeholder="캘린더 검색"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            className="calendar-search-clear"
+            onClick={() => setSearchTerm('')}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* 내 캘린더 헤더 */}
       <div className="calendar-header">
         <h5 className="calendar-title">내 캘린더</h5>
         <div className="calendar-actions">
-          <button className="add-calendar" onClick={handleAddCalendarClick}>
-            +
-          </button>
-          <button className="settings-calendar">
-            <i className="fas fa-cog"></i>
-          </button>
+          <button className="add-calendar" onClick={handleAddCalendarClick}>+</button>
+          <button className="settings-calendar"><i className="fas fa-cog"></i></button>
         </div>
       </div>
 
       {/* 캘린더 목록 */}
       <div className="calendar-list">
-        {calendars.length === 0 ? (
-          <p className="empty-text">등록된 캘린더가 없습니다.</p>
+        {filteredCalendars.length === 0 ? (
+          <p className="empty-text">
+            {searchTerm
+              ? '일치하는 캘린더가 없습니다.'
+              : '등록된 캘린더가 없습니다.'}
+          </p>
         ) : (
-          calendars.map((cal) => {
+          filteredCalendars.map((cal) => {
             const id = cal.id || cal._id || cal.name;
-            const isChecked =
-              checkedState[id] !== undefined ? checkedState[id] : true;
+            // ✅ 5. isChecked를 props로 받은 checkedState에서 가져옴
+            const isChecked = checkedState[id] !== undefined ? checkedState[id] : true;
 
             return (
               <div key={id} className="calendar-item">
@@ -129,31 +139,38 @@ export const Sidebar = () => {
                   <input
                     type="checkbox"
                     className="calendar-checkbox"
-                    style={{
-                      accentColor: cal.color,
-                    }}
+                    style={{ accentColor: cal.color }}
                     checked={isChecked}
+                    // ✅ 6. onChange에 props로 받은 handleCheckboxChange 연결
                     onChange={() => handleCheckboxChange(id)}
                   />
                   <span className="calendar-name">{cal.name}</span>
                 </label>
-
-                {/* ⋯ 메뉴 버튼 */}
                 <span
                   className="calendar-menu"
-                  onClick={() =>
-                    setMenuOpenId(menuOpenId === id ? null : id)
-                  }
+                  onClick={(e) => handleMenuClick(e, id)}
                 >
                   <i className="fas fa-ellipsis-h"></i>
                 </span>
-
-                {/* ⋯ 메뉴 팝업 */}
-                {menuOpenId === id && (
-                  <div className="calendar-menu-popup" ref={menuRef}>
-                    <button className="menu-item">캘린더 공유하기</button>
+                {menuOpenState?.id === id && (
+                  <div
+                    className="calendar-menu-popup"
+                    ref={menuRef}
+                    style={{ top: `${menuOpenState.top}px` }}
+                  >
+                    <button 
+                      className="menu-item share-button"
+                      onClick={() => handleShareClick(id)}
+                    >
+                      공유하기
+                    </button>
                     <hr />
-                    <button className="menu-item">수정 / 삭제</button>
+                    <button
+                      className="menu-item"
+                      onClick={() => handleEditCalendarClick(cal)}
+                    >
+                      수정 / 삭제
+                    </button>
                   </div>
                 )}
               </div>
@@ -162,12 +179,20 @@ export const Sidebar = () => {
         )}
       </div>
 
-      {/* 새 캘린더 추가 모달 */}
+      {/* 새 캘린더 추가/수정 모달 */}
       {isAddModalOpen && (
-        <AddCalendarModal onClose={() => setIsAddModalOpen(false)} />
+        <AddCalendarModal
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setActiveCalendar(null); // 모달 닫힐 때 active 비우기
+          }}
+        />
       )}
-      {isEventModalOpen && (
-        <CalendarModal onClose={() => setIsEventModalOpen(false)} />
+      {isShareModalOpen && (
+        <ShareCalendarModal
+          calendarId={selectedCalendarId}
+          onClose={() => setIsShareModalOpen(false)}
+        />
       )}
     </aside>
   );

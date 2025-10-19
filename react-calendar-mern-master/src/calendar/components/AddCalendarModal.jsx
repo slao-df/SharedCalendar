@@ -1,134 +1,151 @@
+// src/calendar/components/AddCalendarModal.jsx
+
 import React, { useRef, useState, useEffect } from 'react';
+// ✅ 1. useCalendarStore 임포트
 import { useCalendarStore } from '../../hooks/useCalendarStore';
 import './AddCalendarModal.css';
+import Swal from 'sweetalert2'; // (삭제 버튼용)
+
+// 기본 색상 정의 (기존 코드)
+const defaultColors = ['#b9d5f2ff', '#f0cfe3ff', '#cbe5d3ff', '#D3DAEA', '#c4ace6ff'];
 
 export const AddCalendarModal = ({ onClose }) => {
-  const { startAddingCalendar } = useCalendarStore();
-
-  // ✅ 1. defaultColors를 먼저 정의합니다.
-  const defaultColors = ['#cdb4db', '#ffc8dd', '#bde0fe', '#a2d2ff', '#b5ead7'];
+  // ✅ 2. 스토어에서 필요한 함수와 activeCalendar 가져오기
+  const {
+    activeCalendar,
+    startAddingCalendar,
+    startUpdatingCalendar, // (3단계에서 추가할 함수)
+    startDeletingCalendar, // (기존 함수)
+  } = useCalendarStore();
 
   const [name, setName] = useState('');
-  // ✅ 2. 기본 선택 색상을 defaultColors의 첫 번째 값으로 설정합니다.
   const [color, setColor] = useState(defaultColors[0]);
   const [memo, setMemo] = useState('');
-
-  // ✅ 3. colors state의 초기값을 defaultColors로 설정합니다.
-  // (이제 defaultColors에 포함된 색상은 삭제 버튼이 나타나지 않습니다)
   const [colors, setColors] = useState(defaultColors);
 
-  // 컬러 피커
+  // (컬러 피커 관련 state 및 핸들러 ... 생략)
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
   const addButtonRef = useRef(null);
-  const colorInputRef = useRef(null);
-
-  // ✅ 외부 클릭 시 컬러 피커 닫기
   useEffect(() => {
     const handleOutsideClick = (e) => {
-      // 팝업 내부 클릭은 무시
-      if (
-        document.querySelector('.color-picker-popup')?.contains(e.target)
-      ) {
-        return;
-      }
-      // + 버튼 클릭은 handleAddColorClick에서 처리하므로 무시
-      if (addButtonRef.current?.contains(e.target)) {
-        return;
-      }
-      // 그 외의 모든 클릭은 닫기
+      if (document.querySelector('.color-picker-popup')?.contains(e.target)) return;
+      if (addButtonRef.current?.contains(e.target)) return;
       setShowColorPicker(false);
     };
-    
-    // mousedown이 click보다 이벤트가 빨라서 외부 클릭 닫기가 더 잘됩니다.
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
-
-  // ✅ + 버튼 클릭 시 컬러 피커 표시
   const handleAddColorClick = (e) => {
-    e.stopPropagation(); // 모달 닫힘 방지
+    e.stopPropagation();
     const rect = addButtonRef.current.getBoundingClientRect();
-    const gap = 10;
-    const pickerWidth = 180; // 컬러 피커의 대략적인 너비
-
-    let left = rect.right + gap;
-    let top = rect.top;
-    
-    // 화면 오른쪽에 닿으면 왼쪽으로 표시
+    const gap = 10; const pickerWidth = 180;
+    let left = rect.right + gap; let top = rect.top;
     if (rect.right + pickerWidth > window.innerWidth) {
       left = rect.left - pickerWidth - gap;
     }
-
     setPickerPosition({ top, left });
-    setShowColorPicker((prev) => !prev); // 토글 방식
+    setShowColorPicker((prev) => !prev);
   };
-
-  // ✅ 색상 선택
   const handleColorSelect = (e) => {
     const newColor = e.target.value;
     if (!colors.includes(newColor)) {
       setColors((prev) => [...prev, newColor]);
     }
-    setColor(newColor); // 선택한 색으로 변경
-    setShowColorPicker(false); // 피커 닫기
+    setColor(newColor);
+    setShowColorPicker(false);
+  };
+  const handleDeleteColor = (targetColor) => {
+    if (defaultColors.includes(targetColor)) return;
+    setColors((prev) => prev.filter((c) => c !== targetColor));
+    if (color === targetColor) setColor(defaultColors[0]);
   };
 
-  // ✅ 색상 삭제 (이제 defaultColors가 아닌 색상만 삭제 가능)
-  const handleDeleteColor = (targetColor) => {
-    // 혹시 모를 방어 코드: defaultColors에 포함된 건 삭제하지 않음
-    if (defaultColors.includes(targetColor)) return; 
-    
-    setColors((prev) => prev.filter((c) => c !== targetColor));
-    
-    // 만약 삭제한 색상이 현재 선택된 색상이라면, 기본 색상으로 변경
-    if (color === targetColor) {
+
+  // ✅ 3. [신규] activeCalendar가 있으면 폼을 채우는 useEffect
+  useEffect(() => {
+    if (activeCalendar) {
+      // 수정 모드: 폼 채우기
+      setName(activeCalendar.name);
+      setColor(activeCalendar.color);
+      setMemo(activeCalendar.memo || '');
+      // activeCalendar의 색상이 기본 색상표에 없으면 추가
+      if (!colors.includes(activeCalendar.color)) {
+        setColors((prev) => [...prev, activeCalendar.color]);
+      }
+    } else {
+      // 생성 모드: 폼 비우기 (선택사항)
+      setName('');
       setColor(defaultColors[0]);
+      setMemo('');
+    }
+  }, [activeCalendar]); // activeCalendar가 바뀔 때마다 실행
+
+  // ✅ 4. [수정] 저장 또는 수정 핸들러
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name.trim()) return alert('캘린더명을 입력하세요.');
+
+    const calendarData = { name, color, memo };
+
+    if (activeCalendar) {
+      // 수정 모드
+      // (3단계에서 이 함수를 스토어에 추가해야 함)
+      startUpdatingCalendar({ ...activeCalendar, ...calendarData }); 
+    } else {
+      // 생성 모드
+      startAddingCalendar(calendarData);
+    }
+    onClose();
+  };
+
+  // ✅ 5. [신규] 삭제 핸들러
+  const handleDelete = async () => {
+    if (!activeCalendar) return;
+
+    const result = await Swal.fire({
+      title: '캘린더를 삭제하시겠습니까?',
+      text: '캘린더에 속한 모든 일정이 함께 삭제됩니다!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6e7881',
+      confirmButtonText: '삭제',
+      cancelButtonText: '취소',
+    });
+
+    if (result.isConfirmed) {
+      // (이 함수는 스토어에 이미 존재함)
+      startDeletingCalendar(activeCalendar.id || activeCalendar._id);
+      onClose();
     }
   };
 
-  // ✅ 저장 시 캘린더 목록 추가
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (!name.trim()) return alert("캘린더명을 입력하세요.");
-
-    startAddingCalendar({
-      name,
-      color,
-      memo,
-    });
-
+  const handleOverlayClick = () => {
+    setShowColorPicker(false);
     onClose();
   };
-  
-  // 모달 오버레이 클릭 시
-  const handleOverlayClick = () => {
-    setShowColorPicker(false); // 컬러 피커 닫기
-    onClose(); // 모달 닫기
-  }
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div
         className="modal-container"
-        onClick={(e) => e.stopPropagation()} // 모달 내부 클릭 시 닫히지 않게
+        onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="modal-title">새 캘린더</h2>
+        {/* ✅ 6. [수정] 제목 변경 */}
+        <h2 className="modal-title">
+          {activeCalendar ? '캘린더 수정' : '새 캘린더'}
+        </h2>
         <hr className="modal-divider" />
 
         <form onSubmit={handleSubmit}>
-          {/* 캘린더명 */}
+          {/* (캘린더명, 색상 선택, 메모 ... 폼은 동일함 ... 생략) */}
           <label className="modal-label">캘린더명</label>
           <input
-            type="text"
-            className="modal-input"
-            value={name}
+            type="text" className="modal-input" value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="캘린더 이름을 입력하세요"
           />
-
-          {/* 색상 선택 */}
           <label className="modal-label">색상</label>
           <div className="color-options">
             {colors.map((c, i) => (
@@ -138,67 +155,58 @@ export const AddCalendarModal = ({ onClose }) => {
                   style={{ backgroundColor: c }}
                   onClick={() => setColor(c)}
                 />
-                {/* ✅ 로직 수정: defaultColors에 포함되지 않은 색상만 삭제 버튼 표시 */}
                 {!defaultColors.includes(c) && (
                   <button
-                    type="button"
-                    className="delete-btn"
-                    onClick={() => handleDeleteColor(c)}
-                    title="삭제"
-                  >
-                    ✕
-                  </button>
+                    type="button" className="delete-btn"
+                    onClick={() => handleDeleteColor(c)} title="삭제"
+                  >✕</button>
                 )}
               </div>
             ))}
-
-            {/* + 버튼 */}
-            <div
-              ref={addButtonRef}
-              className="color-circle add"
-              onClick={handleAddColorClick}
-            >
+            <div ref={addButtonRef} className="color-circle add" onClick={handleAddColorClick}>
               <span>＋</span>
             </div>
-
-            {/* 컬러 피커 (모달 오른쪽 위치) */}
             {showColorPicker && (
               <div
                 className="color-picker-popup"
-                style={{
-                  position: 'fixed',
-                  top: `${pickerPosition.top}px`,
-                  left: `${pickerPosition.left}px`,
-                  zIndex: 2000,
-                }}
-                onClick={(e) => e.stopPropagation()} // 피커 내부 클릭이 닫히지 않게
+                style={{ position: 'fixed', top: `${pickerPosition.top}px`, left: `${pickerPosition.left}px`, zIndex: 2000 }}
+                onClick={(e) => e.stopPropagation()}
               >
-                <input
-                  ref={colorInputRef}
-                  type="color"
-                  onChange={handleColorSelect}
-                  // autoFocus // 클릭 시 바로 피커가 뜨도록 유도
-                />
+                <input ref={colorInputRef} type="color" onChange={handleColorSelect} />
               </div>
             )}
           </div>
-
-          {/* 메모 */}
           <label className="modal-label">메모</label>
           <textarea
-            className="modal-textarea"
-            value={memo}
+            className="modal-textarea" value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="메모를 입력하세요"
           ></textarea>
 
-          {/* 버튼 */}
+          {/* ✅ 7. [수정] 버튼 영역 (삭제 버튼 추가) */}
           <div className="modal-buttons">
+            {activeCalendar && (
+              <button
+              type="button"
+              // ✅ className 수정
+              className="modal-btn danger" 
+              onClick={handleDelete}
+              style={{ marginRight: 'auto' }} 
+            >
+              삭제
+            </button>
+            )}
+            {/* 저장/취소 버튼은 자동으로 오른쪽 정렬됨 */}
+            <button
+            type="button"
+            // className="cancel-btn" // ❗️ 기존 클래스
+            className="modal-btn ghost" // ✅ 수정된 클래스
+            onClick={onClose}
+          >
+            취소
+          </button>
             <button type="submit" className="save-btn">
               저장
-            </button>
-            <button type="button" className="cancel-btn" onClick={onClose}>
-              취소
             </button>
           </div>
         </form>

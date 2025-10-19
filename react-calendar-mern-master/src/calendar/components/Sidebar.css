@@ -8,8 +8,9 @@
   font-family: "Pretendard", sans-serif;
   display: flex;
   flex-direction: column;
-  gap: 25px;
+  gap: 20px;
   overflow: visible;
+  position: relative;
 }
 
 /* ===== 일정쓰기 버튼 ===== */
@@ -73,7 +74,7 @@
   
 }
 
-/* ✅ “2025년 10월” 한 줄 표시 */
+/* “2025년 10월” 한 줄 표시 */
 .mini-calendar-container .react-calendar__navigation__label span {
   display: inline-block !important;
   white-space: nowrap !important;
@@ -154,9 +155,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 6px;
-  margin-top: 16px;
+  padding: 0 0 2 6px;
+  margin-top: 0px;
   box-sizing: border-box;
+}
+
+/* 캘린더 목록 */
+.calendar-list {
+  margin-top: -15px; 
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 200px; 
 }
 
 .calendar-title {
@@ -193,12 +202,12 @@
 .calendar-label {
   display: flex;
   align-items: center;
-  gap: 10px; /* ✅ 체크박스와 텍스트 사이 간격 */
+  gap: 10px; /* 체크박스와 텍스트 사이 간격 */
 }
 
 
 .calendar-item {
-  position: relative;
+  /* position: relative; */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -224,8 +233,9 @@
 /* ⋯ 클릭 시 표시되는 팝업 메뉴 */
 .calendar-menu-popup {
   position: absolute;
-  right: -140px;
-  top: 0;
+  /* right: -140px;
+  top: 0; */
+  left: 265px;
   background-color: #fff;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -240,6 +250,14 @@
   border-top: 1px solid #898989;
   margin: 4px 0;
 }
+/* 공유하기 버튼
+div.calendar-menu-popup button:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+} */
+
+
 
 .menu-item {
   display: block;
@@ -255,4 +273,67 @@
 
 .menu-item:hover {
   background-color: #f7f7f7;
+}
+
+
+/* 캘린더 검색창 스타일 */
+.calendar-search-container {
+  position: relative;
+  padding: 0 0px;
+  margin-top: 0px;
+  margin-bottom: 8px;
+}
+
+.calendar-search-container .fa-search {
+  position: absolute;
+  left: 8px; /* ❗️ padding: 0 15px 이므로 left 15px로 수정 */
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+  font-size: 14px;
+  
+}
+
+/* ▼▼▼ [수정] 검색창 밑줄 스타일 ▼▼▼ */
+.calendar-search-input {
+  width: 100%;
+  padding: 8px 32px 8px 32px; 
+  border: none;
+  border-bottom: 1px solid #ccc; /* 기본 밑줄 */
+  background-color: transparent; /* 배경 없음 */
+  border-radius: 0; /* 모서리 각진 형태 */
+  
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.calendar-search-input::placeholder {
+  color: #999;
+}
+
+/* ▼▼▼ [수정] 포커스 시 밑줄 스타일 ▼▼▼ */
+.calendar-search-input:focus {
+  border-bottom-color: #007bff; /* (프로젝트 메인 색상) */
+  box-shadow: none; /* 그림자 제거 */
+}
+
+.calendar-search-clear {
+  position: absolute;
+  right: 0px; /* 컨테이너 오른쪽 여백 15px에 맞춤 */
+  top: 50%;
+  transform: translateY(-50%);
+  
+  background: transparent;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
+  
+  color: #999;
+  font-size: 12px; /* '✕' 문자가 작아서 조금 키움 */
+  line-height: 1; /* 줄간격 정렬 */
+}
+
+.calendar-search-clear:hover {
+  color: #333;
 }

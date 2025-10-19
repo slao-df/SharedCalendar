@@ -2,6 +2,11 @@
 .ReactModalPortal > div{
   opacity: 0;
 }
+/* CalendarPage의 메인 캘린더 년/월 헤더 스타일 */
+.rbc-toolbar-label {
+  font-size: 22px; 
+  font-weight: 500; 
+}
 
 .ReactModalPortal .ReactModal__Overlay {
   align-items: center;

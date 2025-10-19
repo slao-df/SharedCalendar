@@ -4,6 +4,19 @@ const { check } = require("express-validator");
 const { validateFields } = require("../middlewares/validate-fields");
 const { validateJWT } = require("../middlewares/validate-jwt");
 const Calendar = require("../models/Calendar");
+const {
+  getCalendars,
+  createCalendar,
+  updateCalendar, // 👈 이 함수가 임포트되었는지 확인하세요.
+  deleteCalendar, // 👈 이 함수도 확인하세요.
+} = require('../controllers/calendars');
+const {
+  generateShareLink,
+  regenerateShareCredentials,
+  verifyAndAttachSharedCalendar,
+  getShareInfo
+} = require('../controllers/calendarShareController');
+
 
 const router = Router();
 
@@ -11,7 +24,6 @@ const router = Router();
 router.use(validateJWT);
 
 /**
- * 📌 [GET] /api/calendars
  * 전체 캘린더 불러오기
  */
 router.get("/", async (req, res) => {
@@ -31,7 +43,6 @@ router.get("/", async (req, res) => {
 });
 
 /**
- * 📌 [POST] /api/calendars
  * 새 캘린더 추가
  */
 router.post(
@@ -59,8 +70,17 @@ router.post(
   }
 );
 
+router.put(
+  '/:id', // '/:id' 경로로 PUT 요청을 받습니다.
+  [ // 유효성 검사 미들웨어 (이름, 색상이 비어있지 않은지 확인)
+    check('name', '이름은 필수입니다.').not().isEmpty(),
+    check('color', '색상은 필수입니다.').not().isEmpty(),
+    validateFields,
+  ],
+  updateCalendar // controllers/calendars.js의 updateCalendar 함수와 연결
+);
+
 /**
- * 📌 [DELETE] /api/calendars/:id
  * 캘린더 삭제
  */
 router.delete("/:id", async (req, res) => {
@@ -88,5 +108,17 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ ok: false, msg: "캘린더 삭제 실패" });
   }
 });
+
+
+// 공유 링크/비번 생성
+router.post('/:id/share', validateJWT, generateShareLink);
+router.get('/:id/share', validateJWT, getShareInfo);
+
+// (선택) 재발급
+router.post('/:id/share/regenerate', validateJWT, regenerateShareCredentials);
+
+// 공유 링크 검증 + 내 목록에 추가
+router.post('/shared/:token/verify', validateJWT, verifyAndAttachSharedCalendar);
+
 
 module.exports = router;
