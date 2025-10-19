@@ -13,22 +13,20 @@ export const useAuthStore = () => {
   const dispatch = useDispatch();
 
   // 🔹 로그인
-  const startLogin = async ({ email, password }) => {
+  const startLogin = async ({ email, password, redirectTo }) => {
     dispatch(onChecking());
-
     try {
       const { data } = await calendarApi.post('/auth', { email, password });
-
       localStorage.setItem('token', data.token);
       localStorage.setItem('token-init-date', new Date().getTime());
       dispatch(onLogin({ name: data.name, uid: data.uid }));
+      
+      if (redirectTo) window.location.href = redirectTo; // ✅ 로그인 후 원래 링크로 이동
     } catch (error) {
-      dispatch(onLogout('이메일 또는 비밀번호가 올바르지 않습니다.'));
-      setTimeout(() => {
-        dispatch(clearErrorMessage());
-      }, 10);
+      dispatch(onLogout('로그인 실패'));
     }
   };
+
 
   // 🔹 회원가입
   const startRegister = async ({ email, password, name }) => {
