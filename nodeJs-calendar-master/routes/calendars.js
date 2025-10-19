@@ -14,7 +14,8 @@ const {
   generateShareLink,
   regenerateShareCredentials,
   verifyAndAttachSharedCalendar,
-  getShareInfo
+  getShareInfo,
+  joinSharedCalendar
 } = require('../controllers/calendarShareController');
 
 
@@ -113,7 +114,7 @@ router.delete("/:id", async (req, res) => {
 // 공유 링크/비번 생성
 router.post('/:id/share', validateJWT, generateShareLink);
 router.get('/:id/share', validateJWT, getShareInfo);
-
+router.post("/join/:shareId", validateJWT, joinSharedCalendar);
 // (선택) 재발급
 router.post('/:id/share/regenerate', validateJWT, regenerateShareCredentials);
 
