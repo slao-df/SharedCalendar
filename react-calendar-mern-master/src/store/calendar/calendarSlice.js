@@ -119,6 +119,10 @@ export const calendarSlice = createSlice({
         state.activeCalendar = updatedCalendar;
       }
     },
+    onAddNewCalendar: (state, { payload }) => {
+      const exists = state.calendars.some((c) => c.id === payload.id);
+      if (!exists) state.calendars.push(payload);
+    },
   },
 });
 
@@ -137,6 +141,7 @@ export const {
   onSetActiveCalendar,
   onLoadCalendars,
   onUpdateCalendar,
+  onAddNewCalendar
 } = calendarSlice.actions;
 
 export default calendarSlice.reducer;
