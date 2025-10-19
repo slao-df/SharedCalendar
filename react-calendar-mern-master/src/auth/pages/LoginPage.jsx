@@ -22,8 +22,11 @@ export const LoginPage = () => {
 
   const loginSubmit = (event) => {
     event.preventDefault();
-    startLogin({ email: loginEmail, password: loginPassword });
+    const params = new URLSearchParams(window.location.search);
+    const redirectTo = params.get('redirectTo') || '/';
+    startLogin({ email: loginEmail, password: loginPassword, redirectTo });
   };
+
   
   useEffect(() => {
     if (errorMessage !== undefined) {
