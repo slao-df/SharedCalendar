@@ -94,10 +94,12 @@ const deleteCalendar = async (req, res) => {
   }
 };
 
+
+
 // ✅ [수정] module.exports에 함수 추가
 module.exports = { 
   getCalendars, 
   createCalendar, 
   updateCalendar, 
-  deleteCalendar 
+  deleteCalendar,
 };
