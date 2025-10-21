@@ -1,3 +1,4 @@
+//controllers/calendars.js
 const Calendar = require('../models/Calendar');
 const Event = require('../models/Event'); // 👈 [추가] 이벤트 삭제를 위해 Event 모델 임포트
 
