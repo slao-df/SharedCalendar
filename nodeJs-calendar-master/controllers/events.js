@@ -1,19 +1,43 @@
 // controllers/events.js
 const { response } = require('express');
 const Event = require('../models/Event');
+const Calendar = require('../models/Calendar');
 
 // 🔹 모든 이벤트 조회
 const getEvents = async (req, res) => {
-  try {
-    const events = await Event.find({ user: req.uid })
-      .populate('user', 'name') // user 필드에서 'name'만 가져오기
-      .populate('calendar', 'name color'); // calendar 필드에서 'name'과 'color' 가져오기
-    // 👆👆👆
+  const userId = req.uid; // 현재 로그인한 사용자 ID
+  console.log(`\n--- [getEvents] 사용자 ID: ${userId} ---`); // 로그 추가
 
-    res.json({ events }); // 프론트엔드로 events 전송
+  try {
+    // 1. 내가 직접 소유한 캘린더 ID 목록 찾기
+    const ownedCalendars = await Calendar.find({ user: userId, originalCalendarId: null }).select('_id');
+    const ownedCalendarIds = ownedCalendars.map(cal => cal._id);
+    console.log('1. 소유 캘린더 ID 목록:', ownedCalendarIds.map(id => id.toString())); // 로그 추가
+
+    // 2. 내가 참여 중인 공유 캘린더 복사본들 찾기 (원본 ID 포함)
+    const sharedCalendarCopies = await Calendar.find({ user: userId, originalCalendarId: { $ne: null } }).select('originalCalendarId');
+    const originalCalendarIds = sharedCalendarCopies.map(cal => cal.originalCalendarId);
+    console.log('2. 공유된 원본 캘린더 ID 목록:', originalCalendarIds.map(id => id.toString())); // 로그 추가
+
+    // 3. 두 목록을 합쳐서 조회할 캘린더 ID 목록 생성 (중복 제거)
+    const relevantCalendarIds = [...new Set([...ownedCalendarIds, ...originalCalendarIds])];
+    console.log('3. 조회할 전체 캘린더 ID 목록:', relevantCalendarIds.map(id => id.toString())); // 로그 추가
+
+    // 4. 해당 캘린더 ID들에 속한 모든 이벤트 조회
+    console.log('4. 이벤트 조회 시작...'); // 로그 추가
+    const events = await Event.find({ calendar: { $in: relevantCalendarIds } })
+                              .populate('user', 'name')
+                              .populate('calendar', 'name color');
+    console.log(`5. 조회된 이벤트 ${events.length}개`); // 로그 추가
+    // console.log('   조회된 이벤트 상세:', events); // (선택) 필요시 상세 로그 확인
+
+    res.json({ events }); // 조회된 이벤트 목록 반환
+
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ msg: '서버 오류 발생' });
+    console.error('❌ 이벤트 로딩 오류 (getEvents):', error);
+    res.status(500).json({ msg: '서버 오류 발생' });
+  } finally {
+    console.log('--- [getEvents] 완료 ---'); // 로그 추가
   }
 };
 
