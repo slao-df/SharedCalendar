@@ -41,7 +41,7 @@ export const SharedCalendarAccessPage = () => {
 
         Swal.fire(
           "캘린더 추가 완료 🎉",
-          `${data.calendar.name} 캘린더가 내 캘린더 목록에 추가되었습니다.`,
+          data.msg || `캘린더가 내 목록에 추가되었습니다.`, // data.calendar.name 대신 일반 메시지 사용
           "success"
         );
 
