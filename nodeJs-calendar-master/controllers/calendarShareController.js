@@ -47,72 +47,63 @@ const generateShareLink = async (req, res) => {
 
 /** ✅ 공유 캘린더 참여 (비밀번호 입력 → 내 계정에 추가) */
 const joinSharedCalendar = async (req, res) => {
-  // 1. 라우터가 '/join/:shareId' 이므로, shareId는 URL에서 받은 캘린더의 ID입니다.
-  const { shareId } = req.params; 
-  const { password } = req.body; // 사용자가 입력한 비밀번호
-  const userId = req.uid; // 참여하려는 사용자 (로그인된 사용자)
+  const { shareId } = req.params; // URL에서 받은 원본 캘린더의 ID
+  const { password } = req.body; // 사용자가 입력한 비밀번호
+  const userId = req.uid; // 참여하려는 사용자 (현재 로그인된 사용자)
 
-  try {
-    // 2. shareId (calendar.id)로 원본 캘린더를 찾습니다.
-    const originalCalendar = await Calendar.findById(shareId);
+  try {
+    // 1. shareId로 원본 캘린더를 찾습니다.
+    const originalCalendar = await Calendar.findById(shareId);
 
-    // 3. 캘린더가 없거나, 공유 링크(shareLink)가 생성된 적 없는 캘린더인지 확인
-    if (!originalCalendar || !originalCalendar.shareLink) {
-      return res.status(404).json({ ok: false, msg: '공유 정보를 찾을 수 없습니다.' });
-    }
+    // 2. 유효성 검사
+    if (!originalCalendar || !originalCalendar.shareLink) {
+      return res.status(404).json({ ok: false, msg: '공유 정보를 찾을 수 없습니다.' });
+    }
+    if (originalCalendar.sharePassword !== password) {
+      return res.status(401).json({ ok: false, msg: '비밀번호가 일치하지 않습니다.' });
+    }
+    if (originalCalendar.user.toString() === userId) {
+      return res.status(400).json({ ok: false, msg: '자신의 캘린더에는 참여할 수 없습니다.' });
+    }
 
-    // 4. 모델 스키마에 맞는 'sharePassword'로 비밀번호를 비교합니다.
-    if (originalCalendar.sharePassword !== password) {
-      return res.status(401).json({ ok: false, msg: '비밀번호가 일치하지 않습니다.' });
-    }
-    
-    // 5. 자기 자신의 캘린더에는 참여할 수 없습니다.
-    if (originalCalendar.user.toString() === userId) {
-      return res.status(400).json({ ok: false, msg: '자신의 캘린더에는 참여할 수 없습니다.' });
-    }
+    // 3. 이미 참여 중인지 확인
+    if (originalCalendar.participants.includes(userId)) {
+        return res.status(200).json({
+            ok: true,
+            msg: '이미 참여 중인 캘린더입니다.',
+            // (참고) 이 경우에도 이미 생성된 캘린더를 찾아서 반환하는 것이 좋습니다.
+            // (지금은 일단 에러 수정에 집중)
+        });
+    }
 
-    // 6. 이미 공유받은 캘린더인지 중복 체크 (이름 기반)
-    const existing = await Calendar.findOne({
-      user: userId, // 현재 로그인한 사용자의 캘린더 중에서
-      name: `[공유] ${originalCalendar.name}`, // 이름이 일치하는 것이 있는지
-    });
-    if (existing) {
-      return res.status(200).json({
-        ok: true,
-        msg: '이미 공유받은 캘린더입니다.',
-        calendar: existing,
-      });
-    }
+    // 4. [핵심 로직] 원본 캘린더에 participants 추가
+    originalCalendar.participants.push(userId);
+    await originalCalendar.save(); // 변경 사항을 DB에 저장
 
-    // 7. 새 캘린더 생성 (참여자의 캘린더 목록에 추가)
-    console.log('>>> DB 저장 시도 전:', { name: `[공유] ${originalCalendar.name}`, user: userId }); // 로그 추가
-    const newCalendar = new Calendar({
-      name: `[공유] ${originalCalendar.name}`,
-      color: originalCalendar.color,
-      memo: originalCalendar.memo,
-      user: userId, // 소유자는 참여자
-      originalCalendarId: originalCalendar._id // ✅ 원본 캘린더의 ID 저장
-    });
-    
-    // 이 save()가 문제일 수 있습니다.
-    const savedCalendar = await newCalendar.save(); // save 결과를 변수에 받아봅니다.
-    
-    console.log('>>> DB 저장 시도 후:', savedCalendar); // 로그 추가 (null이면 저장 실패)
+    // 5. 참여자를 위한 새 캘린더 문서 생성
+    const newCalendar = new Calendar({
+      name: `[공유] ${originalCalendar.name}`, 
+      color: originalCalendar.color,
+      memo: originalCalendar.memo,
+      user: userId, // 참여자 ID
+      originalCalendarId: originalCalendar._id // 원본 ID
+    });
 
-    if (!savedCalendar) { // 만약 저장이 실패했다면
-        console.error('❗️❗️❗️ newCalendar.save() 실패!');
-        return res.status(500).json({ ok: false, msg: '캘린더 저장 중 오류 발생' });
-    }
+    // ✅ [수정 1] 새 캘린더를 데이터베이스에 저장합니다.
+    await newCalendar.save();
 
-    return res.json({
-      ok: true,
-      msg: '공유 캘린더가 내 목록에 추가되었습니다.',
-      calendar: savedCalendar, // 저장된 객체를 반환
-    });
-  } catch (error) {
-    console.error('❌ 공유 캘린더 참여 catch 오류:', error); // catch 블록 로그 강화
-    res.status(500).json({ ok: false, msg: '공유 캘린더 참여 실패' });
-  }
+    // 6. 성공 응답 전송
+    return res.json({
+      ok: true,
+      msg: '캘린더에 성공적으로 참여했습니다.',
+      // ✅ [수정 2] 저장된 새 캘린더 객체를 반환합니다.
+      // (Mongoose가 .save() 후 반환된 객체에는 _id, createdAt, updatedAt이 포함됩니다)
+      calendar: newCalendar 
+    });
+  } catch (error) {
+    console.error('❌ 공유 캘린더 참여 오류:', error);
+    res.status(500).json({ ok: false, msg: '공유 캘린더 참여에 실패했습니다.' });
+  }
 };
 
 /** ✅ 공유 정보 조회 (링크, 비밀번호) */
