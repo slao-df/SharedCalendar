@@ -12,6 +12,8 @@ export const ShareCalendarModal = ({ calendarId, onClose }) => {
   const fetchShareInfo = async () => {
     try {
       const { data } = await calendarApi.get(`/calendars/${calendarId}/share`);
+      
+      console.log('✅ API 응답 (getShareInfo):', data);
       if (data.ok) {
         setShareLink(data.shareUrl);
         setPassword(data.sharePassword);
@@ -40,15 +42,21 @@ export const ShareCalendarModal = ({ calendarId, onClose }) => {
 
     try {
       setSaving(true);
-      const { data } = await calendarApi.post(`/calendars/${calendarId}/share`, { password });
+      
+      // ✅ [수정] PUT을 다시 POST로 변경합니다.
+      // const { data } = await calendarApi.put(`/calendars/${calendarId}/share`, { password }); // (PUT 아님)
+      const { data } = await calendarApi.post(`/calendars/${calendarId}/share`, { password }); // ✅ POST 사용
+      
       if (data.ok) {
         alert("✅ 비밀번호가 성공적으로 변경되었습니다.");
+        // (선택) 변경된 비밀번호를 state에 다시 반영
+        setPassword(data.sharePassword);
       } else {
-        alert("비밀번호 저장 실패");
+        alert("비밀번호 저장 실패: " + (data.msg || ''));
       }
     } catch (error) {
       console.error("❌ 비밀번호 저장 오류:", error);
-      alert("비밀번호 저장 실패");
+      alert("비밀번호 저장 실패: " + (error.response?.data?.msg || error.message));
     } finally {
       setSaving(false);
     }
