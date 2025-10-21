@@ -6,41 +6,31 @@ const Calendar = require('../models/Calendar');
 // 🔹 모든 이벤트 조회
 const getEvents = async (req, res) => {
   const userId = req.uid; // 현재 로그인한 사용자 ID
-  console.log(`\n--- [getEvents] 사용자 ID: ${userId} ---`); // 로그 추가
 
   try {
-    // 1. 내가 직접 소유한 캘린더 ID 목록 찾기
-    const ownedCalendars = await Calendar.find({ user: userId, originalCalendarId: null }).select('_id');
-    const ownedCalendarIds = ownedCalendars.map(cal => cal._id);
-    console.log('1. 소유 캘린더 ID 목록:', ownedCalendarIds.map(id => id.toString())); // 로그 추가
+    // 1. 내가 소유하거나 참여 중인 모든 캘린더의 ID 목록을 찾습니다.
+    const myCalendars = await Calendar.find({
+      $or: [
+        { user: userId },         // 내가 소유한 캘린더
+        { participants: userId }  // 내가 참여자로 포함된 캘린더
+      ]
+    }).select('_id'); // 성능을 위해 ID 필드만 선택
 
-    // 2. 내가 참여 중인 공유 캘린더 복사본들 찾기 (원본 ID 포함)
-    const sharedCalendarCopies = await Calendar.find({ user: userId, originalCalendarId: { $ne: null } }).select('originalCalendarId');
-    const originalCalendarIds = sharedCalendarCopies.map(cal => cal.originalCalendarId);
-    console.log('2. 공유된 원본 캘린더 ID 목록:', originalCalendarIds.map(id => id.toString())); // 로그 추가
+    // 2. 찾은 캘린더 문서에서 ID 값만 추출하여 배열로 만듭니다.
+    const myCalendarIds = myCalendars.map(cal => cal._id);
 
-    // 3. 두 목록을 합쳐서 조회할 캘린더 ID 목록 생성 (중복 제거)
-    const relevantCalendarIds = [...new Set([...ownedCalendarIds, ...originalCalendarIds])];
-    console.log('3. 조회할 전체 캘린더 ID 목록:', relevantCalendarIds.map(id => id.toString())); // 로그 추가
-
-    // 4. 해당 캘린더 ID들에 속한 모든 이벤트 조회
-    console.log('4. 이벤트 조회 시작...'); // 로그 추가
-    const events = await Event.find({ calendar: { $in: relevantCalendarIds } })
-                              .populate('user', 'name')
-                              .populate('calendar', 'name color');
-    console.log(`5. 조회된 이벤트 ${events.length}개`); // 로그 추가
-    // console.log('   조회된 이벤트 상세:', events); // (선택) 필요시 상세 로그 확인
+    // 3. 해당 캘린더 ID 목록에 속한 모든 이벤트를 조회합니다.
+    const events = await Event.find({ calendar: { $in: myCalendarIds } })
+                              .populate('user', 'name')        // 이벤트 작성자 이름 포함
+                              .populate('calendar', 'name color'); // 이벤트가 속한 캘린더의 이름/색상 포함
 
     res.json({ events }); // 조회된 이벤트 목록 반환
 
   } catch (error) {
     console.error('❌ 이벤트 로딩 오류 (getEvents):', error);
     res.status(500).json({ msg: '서버 오류 발생' });
-  } finally {
-    console.log('--- [getEvents] 완료 ---'); // 로그 추가
   }
 };
-
 // 🔹 새 이벤트 생성
 const createEvent = async (req, res = response) => {
   const event = new Event(req.body);
@@ -125,10 +115,6 @@ const deleteEvent = async (req, res) => {
         return res.status(404).json({ msg: '이벤트를 찾을 수 없습니다.' });
       }
 
-      // ❗️❗️❗️
-      // ❗️ 바로 이 부분에서 새로운 오류가 발생하고 있습니다.
-      // ❗️ (예: event.user가 없는데 toString()을 호출 / userId가 없음)
-      // ❗️❗️❗️
       if (event.user.toString() !== userId) {
         return res.status(401).json({ msg: '권한이 없습니다.' });
       }
