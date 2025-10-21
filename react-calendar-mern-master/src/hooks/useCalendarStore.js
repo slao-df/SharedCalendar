@@ -58,7 +58,6 @@ export const useCalendarStore = () => {
 
   const startDeletingEvent = async () => { /* ... */ };
 
-  // 👇👇👇 [핵심 수정] 이 함수를 수정합니다.
   const startLoadingEvents = async () => {
     try {
       const { data } = await calendarApi.get('/events');
@@ -73,7 +72,6 @@ export const useCalendarStore = () => {
       console.error('❗️ 이벤트 로딩 중 오류 발생:', error);
     }
   };
-  // 👆👆👆
 
   // --- 캘린더 관련 함수 (이전과 동일) ---
   const startAddingCalendar = async (calendarData) => {
