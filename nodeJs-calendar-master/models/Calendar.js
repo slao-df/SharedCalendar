@@ -30,6 +30,11 @@ const CalendarSchema = new Schema(
       type: String,
       default: null,
     },
+    originalCalendarId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Calendar', // 'Calendar' 모델 참조
+      default: null
+    },
   },
   { timestamps: true } // ✅ 여기 괄호 닫힘 주의!
 );
