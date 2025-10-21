@@ -5,7 +5,7 @@ import './Sidebar.css';
 import { AddCalendarModal } from './AddCalendarModal';
 import { useCalendarStore } from '../../hooks/useCalendarStore';
 import { ShareCalendarModal } from '../components/ShareCalendarModal';
-
+import { ParticipantModal } from './ParticipantModal';
 
 // ✅ 1. props로 checkedState와 handleCheckboxChange 받기
 export const Sidebar = ({ setIsEventModalOpen, checkedState, handleCheckboxChange }) => {
@@ -19,6 +19,9 @@ export const Sidebar = ({ setIsEventModalOpen, checkedState, handleCheckboxChang
   const { calendars, setActiveEvent, setActiveCalendar } = useCalendarStore();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [selectedCalendarId, setSelectedCalendarId] = useState(null);
+
+  const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
+  const [selectedCalendar, setSelectedCalendar] = useState(null);
 
   const handleShareClick = (calendarId) => {
     console.log('📤 공유하기 클릭됨', calendarId);
@@ -69,6 +72,12 @@ export const Sidebar = ({ setIsEventModalOpen, checkedState, handleCheckboxChang
     setActiveCalendar(calendar); // 수정할 캘린더 설정
     setIsAddModalOpen(true); // 수정 모드로 모달 열기
     setMenuOpenState(null); // 팝업 닫기
+  };
+  // ✅ 3. 참여자 목록 모달 열기 핸들러
+  const handleParticipantClick = (calendar) => {
+    setSelectedCalendar(calendar); // 캘린더 객체(user, participants 포함)를 state에 저장
+    setIsParticipantModalOpen(true);
+    setMenuOpenState(null);
   };
 
   return (
@@ -165,6 +174,10 @@ export const Sidebar = ({ setIsEventModalOpen, checkedState, handleCheckboxChang
                       공유하기
                     </button>
                     <hr />
+                    <button className="menu-item" onClick={() => handleParticipantClick(cal)}>
+                      참여자 목록
+                    </button>
+                    <hr />
                     <button
                       className="menu-item"
                       onClick={() => handleEditCalendarClick(cal)}
@@ -192,6 +205,12 @@ export const Sidebar = ({ setIsEventModalOpen, checkedState, handleCheckboxChang
         <ShareCalendarModal
           calendarId={selectedCalendarId}
           onClose={() => setIsShareModalOpen(false)}
+        />
+      )}
+      {isParticipantModalOpen && (
+        <ParticipantModal
+          calendar={selectedCalendar}
+          onClose={() => setIsParticipantModalOpen(false)}
         />
       )}
     </aside>
