@@ -4,9 +4,12 @@ const Event = require('../models/Event'); // 👈 [추가] 이벤트 삭제를 �
 
 // 🔹 모든 캘린더 불러오기
 const getCalendars = async (req, res) => {
-  try {
-    // [수정] 현재 로그인한 사용자의 캘린더만 불러오도록 수정
-    const calendars = await Calendar.find({ user: req.uid }); 
+ try {
+    // ✅ [수정] 내가 소유하거나 참여한 모든 캘린더 조회
+    const calendars = await Calendar.find({ user: req.uid })
+    .populate('user', 'name') // 👑 소유자 정보 (이름)
+    .populate('participants', 'name'); // 👤 참여자 목록 (이름)
+    
     res.json({ ok: true, calendars });
   } catch (error) {
     console.log(error);
