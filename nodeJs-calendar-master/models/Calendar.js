@@ -30,6 +30,10 @@ const CalendarSchema = new Schema(
       type: String,
       default: null,
     },
+    participants: [{
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    }],
     originalCalendarId: {
       type: Schema.Types.ObjectId,
       ref: 'Calendar', // 'Calendar' 모델 참조
