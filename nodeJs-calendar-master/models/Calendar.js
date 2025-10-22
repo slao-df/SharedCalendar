@@ -39,6 +39,10 @@ const CalendarSchema = new Schema(
       ref: 'Calendar', // 'Calendar' 모델 참조
       default: null
     },
+    editors: [{ // 편집 가능자
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    }],
   },
   { timestamps: true } // ✅ 여기 괄호 닫힘 주의!
 );
