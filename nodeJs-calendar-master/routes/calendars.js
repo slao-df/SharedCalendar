@@ -9,6 +9,7 @@ const {
   createCalendar,
   updateCalendar,
   deleteCalendar,
+  getCalendarParticipants,
 } = require('../controllers/calendars');
 
 // ✅ 1. [수정] updateSharePassword 컨트롤러 임포트
@@ -79,5 +80,6 @@ router.post("/join/:shareId", joinSharedCalendar);
 // (이전 버전 호환용 - 필요시 유지)
 router.post('/shared/:token/verify', verifyAndAttachSharedCalendar);
 
+router.get('/:id/participants', getCalendarParticipants);
 
 module.exports = router;
