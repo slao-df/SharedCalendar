@@ -10,6 +10,7 @@ const {
   updateCalendar,
   deleteCalendar,
   getCalendarParticipants,
+  
 } = require('../controllers/calendars');
 
 // ✅ 1. [수정] updateSharePassword 컨트롤러 임포트
@@ -19,7 +20,8 @@ const {
   verifyAndAttachSharedCalendar,
   getShareInfo,
   joinSharedCalendar,
-  
+  grantEditPermission,
+  revokeEditPermission,
 } = require('../controllers/calendarShareController');
 
 
@@ -81,5 +83,12 @@ router.post("/join/:shareId", joinSharedCalendar);
 router.post('/shared/:token/verify', verifyAndAttachSharedCalendar);
 
 router.get('/:id/participants', getCalendarParticipants);
+
+router.post('/:id/permissions', grantEditPermission);
+
+// ✅ [신규] 캘린더 편집 권한 취소 (DELETE)
+// (참고: HTTP DELETE는 body를 지원하지 않는 경우가 있어 POST를 쓰기도 하지만, 
+//  axios 등은 body와 함께 DELETE 요청 가능)
+router.delete('/:id/permissions', revokeEditPermission);
 
 module.exports = router;
