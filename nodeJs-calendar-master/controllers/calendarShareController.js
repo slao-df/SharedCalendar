@@ -160,6 +160,58 @@ const verifyAndAttachSharedCalendar = async (req, res) => {
    return res.status(501).json({ ok: false, msg: '구현되지 않은 기능입니다.' });
 };
 
+const grantEditPermission = async (req, res) => {
+  const { id: calendarId } = req.params; // 원본 캘린더 ID
+  const { participantId } = req.body; // 권한을 줄 유저 ID (예: user2)
+  const userId = req.uid; // 요청자 (예: test)
+
+  try {
+    const calendar = await Calendar.findById(calendarId);
+    if (!calendar) return res.status(404).json({ ok: false, msg: '캘린더 없음' });
+
+    // 1. 소유자만 권한을 줄 수 있음
+    if (calendar.user.toString() !== userId) {
+      return res.status(401).json({ ok: false, msg: '소유자만 권한을 부여할 수 있습니다.' });
+    }
+
+    // 2. 이미 권한이 있는지 확인 후 추가
+    if (!calendar.editors.includes(participantId)) {
+      calendar.editors.push(participantId);
+      await calendar.save();
+    }
+    res.json({ ok: true, msg: '편집 권한이 부여되었습니다.' });
+
+  } catch (error) {
+    res.status(500).json({ ok: false, msg: '서버 오류' });
+  }
+};
+
+/** ✅ [신규] 캘린더 편집 권한 취소 */
+const revokeEditPermission = async (req, res) => {
+  const { id: calendarId } = req.params; // 원본 캘린더 ID
+  const { participantId } = req.body; // 권한을 뺏을 유저 ID (예: user2)
+  const userId = req.uid; // 요청자 (예: test)
+
+  try {
+    const calendar = await Calendar.findById(calendarId);
+    if (!calendar) return res.status(404).json({ ok: false, msg: '캘린더 없음' });
+
+    // 1. 소유자만 권한을 취소할 수 있음
+    if (calendar.user.toString() !== userId) {
+      return res.status(401).json({ ok: false, msg: '소유자만 권한을 취소할 수 있습니다.' });
+    }
+
+    // 2. 권한 목록에서 제거
+    calendar.editors = calendar.editors.filter(
+      editorId => editorId.toString() !== participantId
+    );
+    await calendar.save();
+    res.json({ ok: true, msg: '편집 권한이 취소되었습니다.' });
+
+  } catch (error) {
+    res.status(500).json({ ok: false, msg: '서버 오류' });
+  }
+};
 
 // ✅ 파일 맨 아래에서 모든 함수를 한 번에 export
 module.exports = {
@@ -168,4 +220,6 @@ module.exports = {
   joinSharedCalendar,
   regenerateShareCredentials, // (수정 필요)
   verifyAndAttachSharedCalendar, // (수정 필요)
+  grantEditPermission, 
+  revokeEditPermission,
 };
