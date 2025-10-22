@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'; // ✅ 1. useMemo 임포트 추가
+import { useState, useEffect, useMemo } from 'react';
 import { Calendar } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -16,25 +16,27 @@ import { useCalendarStore, useAuthStore } from '../../hooks';
 const DragAndDropCalendar = withDragAndDrop(Calendar);
 
 export const CalendarPage = () => {
-  const { status } = useAuthStore(); 
+  // 1. Store hooks
+  const { status, user } = useAuthStore(); 
   const {
     events, 
     calendars, 
+    activeCalendar, 
     setActiveEvent,
     startLoadingEvents,
     startLoadingCalendars,
     startSavingEvent,
   } = useCalendarStore();
 
+  // 2. Local State
   const [lastView, setLastView] = useState(
      localStorage.getItem('lastView') || 'month'
   );
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-
-  // [유지] Sidebar에서 사용하던 checkedState 로직 (체크박스 상태)
   const [checkedState, setCheckedState] = useState({});
   
-  // localStorage에서 로드
+  // 3. useEffects
+  // localStorage에서 체크박스 상태 로드
   useEffect(() => {
     const saved = localStorage.getItem('calendarVisibility');
     if (saved) {
@@ -42,13 +44,12 @@ export const CalendarPage = () => {
     }
   }, []);
 
-  // calendars 로드 시 checkedState 초기화
+  // 캘린더 목록 로드 시 checkedState 초기화
   useEffect(() => {
     if (calendars.length > 0) {
       setCheckedState((prev) => {
         const updated = { ...prev };
         calendars.forEach((c) => {
-          // ✅ [수정] ID 추출 방식을 _id || id 로 통일합니다.
           const id = c._id || c.id; 
           if (updated[id] === undefined) updated[id] = true;
         });
@@ -57,15 +58,14 @@ export const CalendarPage = () => {
     }
   }, [calendars]);
 
-  // localStorage에 저장
+  // checkedState 변경 시 localStorage에 저장
   useEffect(() => {
-    // checkedState가 비어있지 않을 때만 저장 (초기 렌더링 방지)
-    if (Object.keys(checkedState).length > 0) {
-      localStorage.setItem('calendarVisibility', JSON.stringify(checkedState));
-    }
+    if (Object.keys(checkedState).length > 0) {
+      localStorage.setItem('calendarVisibility', JSON.stringify(checkedState));
+    }
   }, [checkedState]);
 
-  // 데이터 로딩 (로그인 상태 확인 후)
+  // 인증 상태 변경 시 데이터 로딩
   useEffect(() => {
     if (status === 'authenticated') {
       startLoadingEvents();
@@ -73,7 +73,40 @@ export const CalendarPage = () => {
     }
   }, [status]); 
 
-  // [유지] 체크박스 상태 변경 핸들러
+  // 4. 권한 확인 로직 (useMemo)
+  // '일정 쓰기' 및 모달용 권한 (활성 캘린더 기준)
+  const canEditActiveCalendar = useMemo(() => {
+    if (!activeCalendar || calendars.length === 0) return false;
+    const fullActiveCal = calendars.find(
+      c => (c._id || c.id) === (activeCalendar._id || activeCalendar.id)
+    );
+    if (!fullActiveCal) return false;
+    const isOwner = (fullActiveCal.user?._id || fullActiveCal.user) === user.uid;
+    const isEditor = fullActiveCal.editors?.includes(user.uid);
+    return isOwner || isEditor;
+  }, [activeCalendar, calendars, user.uid]);
+
+  // 'event' 객체 기반 권한 확인 (DND 및 리사이즈용)
+  const checkEventPermission = (event) => {
+    const eventOriginalId = event.calendar?._id || event.calendar?.id || event.calendar;
+    if (!eventOriginalId) return false;
+
+    const calendarStub = calendars.find(c => {
+      const isOriginal = (c._id || c.id).toString() === eventOriginalId.toString();
+      const isShared = c.originalCalendarId?.toString() === eventOriginalId.toString();
+      return isOriginal || isShared;
+    });
+
+    if (!calendarStub) return false;
+
+    const isOwner = (calendarStub.user?._id || calendarStub.user) === user.uid;
+    const isEditor = calendarStub.editors?.includes(user.uid);
+    
+    return isOwner || isEditor;
+  };
+
+  // 5. 핸들러 함수
+  // 체크박스 상태 변경 핸들러
   const handleCheckboxChange = (calendarId) => {
     setCheckedState((prevState) => ({
       ...prevState,
@@ -81,31 +114,38 @@ export const CalendarPage = () => {
     }));
   };
 
-  // [유지] 일정 클릭 핸들러
+  // 일정 클릭 핸들러
   const handleSelectEvent = (event) => {
     setActiveEvent(event);
     setIsEventModalOpen(true);
   };
 
-  // [유지] 모달 닫기 핸들러
+  // 모달 닫기 핸들러
   const handleCloseModal = () => {
     setIsEventModalOpen(false);
   };
 
-  // [유지] 드롭 핸들러
+  // 드롭 핸들러 (권한 확인)
   const handleEventDrop = ({ event, start, end }) => {
+    if (!checkEventPermission(event)) return; 
     startSavingEvent({ ...event, start, end });
   };
 
-  // [유지] 리사이즈 핸들러
+  // 리사이즈 핸들러 (권한 확인)
   const handleEventResize = ({ event, start, end }) => {
+    if (!checkEventPermission(event)) return; 
     startSavingEvent({ ...event, start, end });
   };
 
-  // [유지] 이벤트 스타일
+  // DND 라이브러리용 권한 accessor 함수
+  const eventCanBeModified = (event) => {
+    return checkEventPermission(event);
+  };
+
+  // 이벤트 스타일
   const eventStyleGetter = (event, start, end, isSelected) => {
     const style = {
-      backgroundColor: event.calendar?.color || '#367CF7',
+      backgroundColor: event.calendar?.color || '#367CF7', // 캘린더 색상 적용
       borderRadius: '2px',
       opacity: 0.8,
       color: 'white',
@@ -115,61 +155,46 @@ export const CalendarPage = () => {
     return { style };
   };
 
-  // [유지] 뷰 변경 핸들러
+  // 뷰 변경 핸들러
   const onViewChanged = (event) => {
     localStorage.setItem('lastView', event);
     setLastView(event);
   };
 
-  // ---
-  // ✅ 2. [핵심 수정] 필터링 로직 (useMemo 3단계)
-  // ---
+  // 6. 필터링 로직 (useMemo 3단계)
+  // "보이는 원본 ID" 목록을 useMemo로 생성
+  const visibleOriginalIds = useMemo(() => {
+    const idSet = new Set();
+    const calendarMap = new Map(calendars.map(c => [(c._id || c.id), c]));
+    Object.keys(checkedState).forEach(calendarId => {
+      if (checkedState[calendarId]) {
+        const cal = calendarMap.get(calendarId);
+        if (cal) {
+          if (cal.originalCalendarId) {
+            idSet.add(cal.originalCalendarId);
+          } else {
+            idSet.add(cal._id || cal.id);
+          }
+        }
+      }
+    });
+    return idSet;
+  }, [calendars, checkedState]);
 
-  // [수정 1] "보이는 원본 ID" 목록을 useMemo로 생성
-  const visibleOriginalIds = useMemo(() => {
-    const idSet = new Set();
-    
-    // 캘린더 목록을 Map으로 만들어 빠른 탐색
-    const calendarMap = new Map(calendars.map(c => [(c._id || c.id), c]));
+  // 위 Set을 기반으로 이벤트 목록을 필터링 (useMemo)
+  const filteredEvents = useMemo(() => {
+    return events.filter(event => {
+      const eventCalendarId = event.calendar?._id || event.calendar?.id || event.calendar;
+      return visibleOriginalIds.has(eventCalendarId);
+    });
+  }, [events, visibleOriginalIds]);
 
-    // checkedState 객체 (예: { id_11: true, id_shared_1: false }) 를 순회
-    Object.keys(checkedState).forEach(calendarId => {
-      // 만약 캘린더가 체크되어 있다면 (true)
-      if (checkedState[calendarId]) {
-        const cal = calendarMap.get(calendarId);
-        if (cal) {
-          // 공유 캘린더면 '원본 ID'를, 아니면 '자신 ID'를 Set에 추가
-          if (cal.originalCalendarId) {
-            idSet.add(cal.originalCalendarId);
-          } else {
-            idSet.add(cal._id || cal.id);
-          }
-        }
-      }
-    });
-    return idSet;
-  }, [calendars, checkedState]); // calendars 목록이나 checkedState가 바뀔 때만 재계산
+  // 필터링된 이벤트를 Date 객체로 변환 (useMemo)
+  const parsedEvents = useMemo(() => 
+    convertEventsToDateEvents(filteredEvents),
+  [filteredEvents]);
 
-  // [수정 2] 위 Set을 기반으로 이벤트 목록을 필터링 (useMemo)
-  const filteredEvents = useMemo(() => {
-    return events.filter(event => {
-      // 이벤트가 속한 캘린더의 ID (원본 ID)
-      const eventCalendarId = event.calendar?._id || event.calendar?.id || event.calendar;
-      
-      // 이 ID가 "보이는 원본 ID" Set에 있는지 확인
-      return visibleOriginalIds.has(eventCalendarId);
-    });
-  }, [events, visibleOriginalIds]); // events나 visibleOriginalIds가 바뀔 때만 재계산
-
-  // [수정 3] 필터링된 이벤트를 Date 객체로 변환 (useMemo)
-  const parsedEvents = useMemo(() => 
-    convertEventsToDateEvents(filteredEvents),
-  [filteredEvents]); // filteredEvents가 바뀔 때만 재계산
-
-  // --- (필터링 로직 끝) ---
-
-
-  // [유지] 커스텀 이벤트 컴포넌트
+  // 7. 커스텀 컴포넌트
   const CustomEvent = ({ event }) => (
     <span>
       <strong>{event.title}</strong>
@@ -177,10 +202,7 @@ export const CalendarPage = () => {
     </span>
   );
 
-  // ❌ 3. [삭제] 기존의 잘못된 필터링 로직 2줄을 삭제합니다.
-  // const filteredEvents = events.filter(...);
-  // const parsedEvents = convertEventsToDateEvents(filteredEvents);
-
+  // 8. 렌더링
   return (
     <DndProvider backend={HTML5Backend}>
       <div
@@ -189,43 +211,44 @@ export const CalendarPage = () => {
       >
         <Navbar />
         <div className="d-flex" style={{ height: 'calc(100vh - 60px)' }}>
-          {/* ✅ 4. Sidebar에 checkedState와 핸들러 전달 */}
           <Sidebar
+            // "일정 쓰기" 버튼이 항상 모달을 띄우도록 수정
             setIsEventModalOpen={setIsEventModalOpen}
             checkedState={checkedState}
-            handleCheckboxChange={handleCheckboxChange}
+            handleCheckboxChange={handleCheckboxChange}
           />
           <div className="flex-grow-1 bg-white">
             <DragAndDropCalendar
               culture="ko"
               localizer={localizer}
-              // ✅ 5. 필터링 + 변환된 이벤트를 전달
-              events={parsedEvents}
+              events={parsedEvents} 
               defaultView={lastView}
               startAccessor="start"
               endAccessor="end"
               style={{ height: '100%', padding: '10px' }}
               messages={getMessagesKO()}
               eventPropGetter={eventStyleGetter}
-              onSelectEvent={handleSelectEvent}
-              onView={onViewChanged}
-              formats={{
-                monthHeaderFormat: (date, culture, localizer) =>
-                  localizer.format(date, 'yyyy년 M월', culture),
-                dayHeaderFormat: (date, culture, localizer) =>
-                  localizer.format(date, 'M월 d일 (EEE)', culture),
-              }}
+              onSelectEvent={handleSelectEvent} 
+  Vimium C: C-s
               components={{
                 event: CustomEvent,
               }}
               onEventDrop={handleEventDrop}
               onEventResize={handleEventResize}
-              resizable
+              // 'resizable'을 'accessor'로 변경하여 이벤트별로 제어
+              resizable={undefined} 
+              resizableAccessor={eventCanBeModified} 
+              draggableAccessor={eventCanBeModified} 
             />
           </div>
         </div>
-        {/* 모달 렌더링 */}
-        {isEventModalOpen && <CalendarModal onClose={handleCloseModal} />}
+        {/* 모달에 canEdit prop 전달 (모달 내부에서 저장/삭제 버튼 비활성화) */}
+        {isEventModalOpen && (
+          <CalendarModal 
+            onClose={handleCloseModal} 
+            canEdit={canEditActiveCalendar} 
+          />
+        )}
       </div>
     </DndProvider>
   );
