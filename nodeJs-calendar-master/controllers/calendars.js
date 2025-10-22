@@ -7,8 +7,8 @@ const getCalendars = async (req, res) => {
  try {
     // ✅ [수정] 내가 소유하거나 참여한 모든 캘린더 조회
     const calendars = await Calendar.find({ user: req.uid })
-    .populate('user', 'name') // 👑 소유자 정보 (이름)
-    .populate('participants', 'name'); // 👤 참여자 목록 (이름)
+    .populate('user', 'name') // 👑 소유자 정보 (이름)
+    .populate('participants', 'name'); // 👤 참여자 목록 (이름)
     
     res.json({ ok: true, calendars });
   } catch (error) {
@@ -98,7 +98,46 @@ const deleteCalendar = async (req, res) => {
   }
 };
 
+const getCalendarParticipants = async (req, res) => {
+  const { id } = req.params; // 프론트에서 클릭한 캘린더의 ID (예: '[공유] 1'의 ID)
 
+  try {
+    // 1. 프론트가 보낸 ID로 캘린더를 찾습니다.
+    const calendarToShow = await Calendar.findById(id);
+
+    if (!calendarToShow) {
+      return res.status(404).json({ ok: false, msg: '캘린더를 찾을 수 없습니다.' });
+    }
+
+    // 2. [핵심] 
+    // 만약 이 캘린더가 공유 캘린더면(originalCalendarId가 있으면),
+    // 실제 정보를 담고 있는 '원본 캘린더 ID'를 사용합니다.
+    // 일반 캘린더면, '자기 ID'를 사용합니다.
+    const targetCalendarId = calendarToShow.originalCalendarId 
+                             ? calendarToShow.originalCalendarId 
+                             : calendarToShow._id;
+
+    // 3. '원본 캘린더'의 소유자와 참여자 목록을 DB에서 조회(populate)합니다.
+    const targetCalendar = await Calendar.findById(targetCalendarId)
+                                    .populate('user', 'name') // 소유자 정보
+                                    .populate('participants', 'name'); // 참여자 목록
+
+    if (!targetCalendar) {
+      return res.status(404).json({ ok: false, msg: '원본 캘린더 정보를 찾을 수 없습니다.' });
+    }
+
+    // 4. 원본 캘린더의 소유주와 참여자 목록을 클라이언트에 반환
+    res.json({
+      ok: true,
+      owner: targetCalendar.user, // 원본 소유자 (예: 'test')
+      participants: targetCalendar.participants, // 원본 참여자 목록
+    });
+
+  } catch (error) {
+    console.error('❌ 참여자 목록 조회 오류:', error);
+    res.status(500).json({ ok: false, msg: '서버 오류 발생' });
+  }
+};
 
 // ✅ [수정] module.exports에 함수 추가
 module.exports = { 
@@ -106,4 +145,5 @@ module.exports = {
   createCalendar, 
   updateCalendar, 
   deleteCalendar,
+  getCalendarParticipants,
 };
