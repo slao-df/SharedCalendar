@@ -1,231 +1,322 @@
-import React, { useEffect, useState, useCallback } from 'react';
-// ✅ 1. 스토어 훅 임포트
-import { useCalendarStore } from '../../hooks/useCalendarStore';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import ko from 'date-fns/locale/ko';
 import 'react-datepicker/dist/react-datepicker.css';
 import './CalendarModal.css';
-import Swal from 'sweetalert2'; // ✅ 2. 확인 창을 위해 Swal 임포트
+import Swal from 'sweetalert2';
+import { useCalendarStore } from '../../hooks/useCalendarStore';
 
-registerLocale('ko', ko);
+const koMondayStart = {
+  ...ko,
+  options: {
+    ...ko.options,
+    weekStartsOn: 1, // 0=Sunday, 1=Monday
+  },
+};
 
-export const CalendarModal = ({ onClose }) => {
-  // ✅ 3. 스토어에서 startDeletingEvent 함수 가져오기
+registerLocale('ko', koMondayStart);
+
+export const CalendarModal = ({ onClose, canModify, calendars = [], userId }) => {
   const {
-    calendars,
     startLoadingCalendars,
     startSavingEvent,
     activeEvent,
     setActiveEvent,
-    startDeletingEvent, // ✅ 삭제 함수
+    startDeletingEvent,
   } = useCalendarStore();
 
-  // (폼 상태 ... 생략)
-  const [isOpen, setIsOpen] = useState(true);
-  const [title, setTitle] = useState('');
-  const [start, setStart] = useState(new Date());
-  const [end, setEnd] = useState(new Date());
-  const [memo, setMemo] = useState('');
-  const [calendarId, setCalendarId] = useState('');
+  const [formValues, setFormValues] = useState({
+    title: '',
+    notes: '',
+    start: new Date(),
+    end: new Date(new Date().getTime() + 60 * 60 * 1000),
+    calendarId: '',
+  });
 
-  // 10분 단위 반올림 함수
+  const [isTitleValid, setIsTitleValid] = useState(true);
+
+  const toId = (v) => (typeof v === 'object' && v ? v._id || v.id : v);
+  const sameId = (a, b) => (a && b ? String(a) === String(b) : false);
+
   const roundTo10Minutes = (date = new Date()) => {
     const ms = 1000 * 60 * 10;
-    return new Date(Math.floor(date.getTime() / ms) * ms);
+    return new Date(Math.ceil(date.getTime() / ms) * ms);
   };
 
-  // activeEvent가 바뀌면 폼 채우기
+  // ✅ 소유자 또는 편집자 캘린더만 새 일정용 후보
+  const writableCalendars = useMemo(() => {
+    const me = String(userId || '');
+    return calendars.filter((c) => {
+      const ownerId = String(toId(c.user));
+      const editorIds = Array.isArray(c.editors) ? c.editors.map((e) => String(toId(e))) : [];
+      return ownerId === me || editorIds.includes(me);
+    });
+  }, [calendars, userId]);
+
+  // ✅ 초기화 (activeEvent 여부에 따라 생성/수정 구분)
   useEffect(() => {
     if (activeEvent) {
-      // (수정 모드 ... 생략)
-      setTitle(activeEvent.title);
-      setStart(new Date(activeEvent.start));
-      setEnd(new Date(activeEvent.end));
-      setMemo(activeEvent.memo || '');
-      setCalendarId(activeEvent.calendar?.id || activeEvent.calendar?._id || '');
+      const eventCalId =
+        toId(activeEvent.calendar?._id) ||
+        toId(activeEvent.calendar?.id) ||
+        toId(activeEvent.calendar) ||
+        activeEvent.calendar;
+
+      const mapped =
+        calendars.find(
+          (c) =>
+            sameId(toId(c._id || c.id), eventCalId) ||
+            sameId(c.originalCalendarId, eventCalId)
+        ) || null;
+
+      const finalCalendarId = toId(mapped?._id || mapped?.id) || eventCalId;
+
+      setFormValues({
+        title: activeEvent.title || '',
+        notes: activeEvent.notes || '',
+        start: new Date(activeEvent.start),
+        end: new Date(activeEvent.end),
+        calendarId: finalCalendarId,
+      });
     } else {
-      // (새 일정 모드 ... 생략)
       const now = new Date();
-      setStart(roundTo10Minutes(now));
-      setEnd(roundTo10Minutes(new Date(now.getTime() + 60 * 60 * 1000)));
-      setTitle('');
-      setMemo('');
-      if (calendars.length > 0) {
-        setCalendarId(calendars[0].id || calendars[0]._id);
-      }
-    }
-  }, [activeEvent, calendars]);
+      const defaultStart = roundTo10Minutes(now);
+      const defaultEnd = roundTo10Minutes(new Date(now.getTime() + 60 * 60 * 1000));
 
-  // 캘린더 목록 로딩
+      const defaultCalendarId =
+        writableCalendars.length > 0
+          ? toId(writableCalendars[0]._id || writableCalendars[0].id)
+          : '';
+
+      setFormValues({
+        title: '',
+        notes: '',
+        start: defaultStart,
+        end: defaultEnd,
+        calendarId: defaultCalendarId,
+      });
+    }
+    setIsTitleValid(true);
+  }, [activeEvent, calendars, writableCalendars]);
+
+  // 캘린더 없으면 자동 로딩
   useEffect(() => {
-    startLoadingCalendars();
-  }, []);
+    if (!calendars || calendars.length === 0) startLoadingCalendars();
+  }, [startLoadingCalendars, calendars]);
 
-  // 모달 닫기 함수 (safeClose)
   const safeClose = useCallback(() => {
-    if (typeof onClose === 'function') {
-      onClose();
-    }
+    if (typeof onClose === 'function') onClose();
     setActiveEvent(null);
-    setIsOpen(false);
   }, [onClose, setActiveEvent]);
 
-  // ESC로 닫기
   useEffect(() => {
     const handleEsc = (e) => e.key === 'Escape' && safeClose();
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [safeClose]);
 
-  // 폼 제출 (저장/수정)
+  const onInputChange = ({ target }) => {
+    setFormValues((prev) => ({
+      ...prev,
+      [target.name]: target.value,
+    }));
+    if (target.name === 'title') {
+      setIsTitleValid(target.value.trim().length > 0);
+    }
+  };
+
+  const onDateChange = (value, changing) => {
+    setFormValues((prev) => ({
+      ...prev,
+      [changing]: value,
+    }));
+  };
+
+  // ✅ viewer 방지 + 기본적으로 새 일정은 작성 가능하도록 변경
+  const effectiveCanModify = useMemo(() => {
+    // activeEvent가 없으면 (새 일정 모달) → 항상 true
+    if (!activeEvent) return true;
+    // 기존 일정이면 props에서 받은 권한값 사용
+    return !!canModify;
+  }, [activeEvent, canModify]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    // (유효성 검사 ... 생략)
-    if (!title.trim()) return alert('제목을 입력하세요.');
-    if (!calendarId) return alert('캘린더를 선택하세요.');
-    if (end < start) return alert('종료 시간은 시작 시간보다 빨라야 합니다.');
+    if (!effectiveCanModify) return; // viewer 안전망
+
+    const diff = formValues.end.getTime() - formValues.start.getTime();
+    if (isNaN(diff) || diff < 0) {
+      Swal.fire('오류', '종료 날짜는 시작 날짜보다 이후여야 합니다.', 'error');
+      return;
+    }
+    if (formValues.title.trim().length === 0) {
+      setIsTitleValid(false);
+      Swal.fire('오류', '제목을 입력해주세요.', 'error');
+      return;
+    }
+    if (!formValues.calendarId) {
+      Swal.fire('오류', '캘린더를 선택해주세요.', 'error');
+      return;
+    }
 
     startSavingEvent({
-      id: activeEvent ? activeEvent.id : null,
-      title,
-      start,
-      end,
-      memo,
-      calendarId,
+      ...activeEvent,
+      title: formValues.title,
+      notes: formValues.notes,
+      start: formValues.start,
+      end: formValues.end,
+      calendarId: formValues.calendarId,
     });
 
     safeClose();
   };
 
-  // ✅ 4. 삭제 버튼 핸들러
   const handleDelete = () => {
-    // 4-1. (선택) 사용자에게 삭제 확인
+    if (!effectiveCanModify) return;
     Swal.fire({
-      title: '일정을 삭제하시겠습니까?',
-      text: '삭제된 일정은 복구할 수 없습니다.',
+      title: '삭제 확인',
+      text: '이 일정을 삭제하시겠습니까?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33', // 삭제 버튼 색상
-      cancelButtonColor: '#6e7881', // 취소 버튼 색상
       confirmButtonText: '삭제',
       cancelButtonText: '취소',
     }).then((result) => {
-      // 4-2. 사용자가 '삭제'를 클릭했을 때
       if (result.isConfirmed) {
-        startDeletingEvent(); // 스토어의 삭제 함수 호출
-        safeClose(); // 모달 닫기
+        startDeletingEvent();
+        safeClose();
       }
     });
   };
 
-  if (!isOpen) return null;
+  const titleClass = useMemo(() => (!isTitleValid ? 'is-invalid' : ''), [isTitleValid]);
 
   return (
     <div className="modal-overlay" onClick={safeClose}>
-      <div
-        className="modal-container wide"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="modal-container wide" onClick={(e) => e.stopPropagation()}>
         <h2 className="modal-title">{activeEvent ? '일정 수정' : '새 일정'}</h2>
         <hr className="modal-divider" />
 
         <form onSubmit={handleSubmit} className="modal-form">
-          {/* ... (폼 내용: 제목, 캘린더, 시간, 메모) ... 생략 ... */}
+          {/* 제목 */}
           <label className="modal-label">제목</label>
           <input
             type="text"
-            className="modal-input"
+            name="title"
+            className={`modal-input ${titleClass}`}
             placeholder="일정 제목을 입력하세요"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={formValues.title}
+            onChange={onInputChange}
+            disabled={!effectiveCanModify}
           />
+          {!isTitleValid && <small className="text-danger">제목은 필수 입력 항목입니다.</small>}
 
+          {/* 캘린더 */}
           <label className="modal-label">캘린더</label>
           <select
             className="modal-input"
-            value={calendarId}
-            onChange={(e) => setCalendarId(e.target.value)}
+            name="calendarId"
+            value={formValues.calendarId}
+            onChange={onInputChange}
+            disabled={!effectiveCanModify && !activeEvent}
           >
             {calendars.length === 0 ? (
               <option value="">캘린더 없음</option>
             ) : (
-              calendars.map((cal) => (
-                <option
-                  key={cal.id || cal._id}
-                  value={cal.id || cal._id}
-                  style={{ color: cal.color }}
-                >
-                  {cal.name}
-                </option>
-              ))
+              calendars.map((cal) => {
+                const isShared = cal.name?.includes('[공유]');
+                const isOwner = String(toId(cal.user)) === String(userId);
+                const isEditor = Array.isArray(cal.editors)
+                  ? cal.editors.some((e) => String(toId(e)) === String(userId))
+                  : false;
+
+                // viewer는 공유캘린더 선택 불가
+                const disabled = isShared && !isOwner && !isEditor;
+                return (
+                  <option
+                    key={toId(cal.id || cal._id)}
+                    value={toId(cal.id || cal._id)}
+                    disabled={disabled}
+                  >
+                    {cal.name}
+                  </option>
+                );
+              })
             )}
           </select>
 
+          {/* 날짜 */}
           <div className="datetime-row">
             <div className="datetime-group">
               <label className="modal-label">시작</label>
               <DatePicker
                 locale="ko"
-                selected={start}
-                onChange={(date) => setStart(date)}
+                selected={formValues.start}
+                onChange={(date) => onDateChange(date, 'start')}
                 showTimeSelect
                 timeIntervals={10}
                 dateFormat="yyyy. MM. dd. aa hh:mm"
                 dateFormatCalendar="yyyy년 MMMM"
                 className="modal-input"
                 timeCaption="시간"
+                disabled={!effectiveCanModify}
               />
             </div>
             <div className="datetime-group">
               <label className="modal-label">종료</label>
               <DatePicker
                 locale="ko"
-                selected={end}
-                onChange={(date) => setEnd(date)}
+                selected={formValues.end}
+                onChange={(date) => onDateChange(date, 'end')}
                 showTimeSelect
                 timeIntervals={10}
                 dateFormat="yyyy. MM. dd. aa hh:mm"
                 dateFormatCalendar="yyyy년 MMMM"
                 className="modal-input"
                 timeCaption="시간"
+                minDate={formValues.start}
+                disabled={!effectiveCanModify}
               />
             </div>
           </div>
 
+          {/* 메모 */}
           <label className="modal-label">메모</label>
           <textarea
             className="modal-textarea"
+            name="notes"
             placeholder="메모를 입력하세요"
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
+            value={formValues.notes}
+            onChange={onInputChange}
+            disabled={!effectiveCanModify}
           ></textarea>
 
-          {/* ✅ 5. 버튼 영역 수정 */}
+          {/* 읽기 전용 안내 */}
+          {!effectiveCanModify && activeEvent && (
+            <p className="text-muted" style={{ marginTop: '10px' }}>
+              🔒 이 일정은 읽기 전용입니다.
+            </p>
+          )}
+
+          {/* 버튼 */}
           <div className="modal-actions">
-            {/* 5-1. 삭제 버튼 (수정 모드일 때만 보임) */}
-            {activeEvent && (
+            {activeEvent && effectiveCanModify && (
               <button
                 type="button"
-                className="modal-btn danger" // (CSS에 .danger 스타일 필요)
+                className="modal-btn danger"
                 onClick={handleDelete}
-                // (버튼을 왼쪽으로 보내기 위한 인라인 스타일 예시)
                 style={{ marginRight: 'auto' }}
               >
                 삭제
               </button>
             )}
-
-            {/* 5-2. 취소 및 저장 버튼 (오른쪽 정렬) */}
-            <button
-              type="button"
-              className="modal-btn ghost"
-              onClick={safeClose}
-            >
+            <button type="button" className="modal-btn ghost" onClick={safeClose}>
               취소
             </button>
-            <button type="submit" className="modal-btn primary">
-              저장
-            </button>
+            {effectiveCanModify && (
+              <button type="submit" className="modal-btn primary">
+                저장
+              </button>
+            )}
           </div>
         </form>
       </div>
