@@ -43,7 +43,7 @@ export const CalendarModal = ({ onClose, canModify, calendars = [], userId }) =>
     return new Date(Math.ceil(date.getTime() / ms) * ms);
   };
 
-  // ✅ 소유자 또는 편집자 캘린더만 새 일정용 후보
+  // 소유자 또는 편집자 캘린더만 새 일정용 후보
   const writableCalendars = useMemo(() => {
     const me = String(userId || '');
     return calendars.filter((c) => {
@@ -53,7 +53,7 @@ export const CalendarModal = ({ onClose, canModify, calendars = [], userId }) =>
     });
   }, [calendars, userId]);
 
-  // ✅ 초기화 (activeEvent 여부에 따라 생성/수정 구분)
+  // 초기화 (activeEvent 여부에 따라 생성/수정 구분)
   useEffect(() => {
     if (activeEvent) {
       const eventCalId =
@@ -132,7 +132,7 @@ export const CalendarModal = ({ onClose, canModify, calendars = [], userId }) =>
     }));
   };
 
-  // ✅ viewer 방지 + 기본적으로 새 일정은 작성 가능하도록 변경
+  // viewer 방지 + 기본적으로 새 일정은 작성 가능하도록 변경
   const effectiveCanModify = useMemo(() => {
     // activeEvent가 없으면 (새 일정 모달) → 항상 true
     if (!activeEvent) return true;
