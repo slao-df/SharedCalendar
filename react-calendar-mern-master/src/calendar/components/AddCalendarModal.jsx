@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 // ✅ 1. useCalendarStore 임포트
 import { useCalendarStore } from '../../hooks/useCalendarStore';
+import { useAuthStore } from '../../hooks';
 import './AddCalendarModal.css';
 import Swal from 'sweetalert2';
 
@@ -18,6 +19,8 @@ const CalendarFormFields = ({ formState, onFormChange, colors, setColors, defaul
   const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
   const addButtonRef = useRef(null);
   const colorInputRef = useRef(null); // ref 추가
+
+ 
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -105,12 +108,10 @@ const CalendarFormFields = ({ formState, onFormChange, colors, setColors, defaul
   );
 };
 
-
-// ----------------------------------------------------
-// --- 메인 모달 컴포넌트 ---
-// ----------------------------------------------------
+// 메인 모달 컴포넌트
 export const AddCalendarModal = ({ onClose }) => {
-  // ✅ 2. 스토어 함수에 startJoiningCalendar 추가 (useCalendarStore.js에 구현 필요)
+  const { user } = useAuthStore();
+  
   const {
     activeCalendar,
     startAddingCalendar,
@@ -135,7 +136,8 @@ export const AddCalendarModal = ({ onClose }) => {
   });
 
   // (컬러 피커 관련 state ... 는 CalendarFormFields로 이동)
-
+   // 현재 내가 수정 중인 캘린더의 소유자인지 확인
+  const isOwnerOfActiveCalendar = activeCalendar && (activeCalendar.user?._id || activeCalendar.user) === user.uid;
   // ✅ 4. [수정] activeCalendar가 있으면 (수정 모드) 폼을 채움
   useEffect(() => {
     if (activeCalendar) {
@@ -231,9 +233,7 @@ export const AddCalendarModal = ({ onClose }) => {
         
         {/* === ✅ 7. [핵심] 모달 렌더링 분기 === */}
         {!activeCalendar ? (
-          // ---------------------------------
-          // 1. "생성 / 참여" 모드 (activeCalendar가 null일 때)
-          // ---------------------------------
+          // "생성 / 참여" 모드 (activeCalendar가 null일 때)
           <>
             <div className="modal-tabs">
               <button
@@ -259,12 +259,14 @@ export const AddCalendarModal = ({ onClose }) => {
                   colors={colors}
                   setColors={setColors}
                   defaultColors={defaultColors}
+                  // ✅ [추가] 소유자가 아닐 경우 필드 비활성화
+                  disabled={!isOwnerOfActiveCalendar}
                 />
                 <div className="modal-buttons">
                   <button type="button" className="modal-btn ghost" onClick={onClose}>
                     취소
                   </button>
-                  <button type="submit" className="save-btn">
+                  <button type="submit" className="save-btn" disabled={!isOwnerOfActiveCalendar}>
                     저장
                   </button>
                 </div>
