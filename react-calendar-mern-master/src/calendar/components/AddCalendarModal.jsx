@@ -1,32 +1,24 @@
-// src/calendar/components/AddCalendarModal.jsx
-
 import React, { useRef, useState, useEffect } from 'react';
 // ✅ 1. useCalendarStore 임포트
 import { useCalendarStore } from '../../hooks/useCalendarStore';
 import './AddCalendarModal.css';
-import Swal from 'sweetalert2'; // (삭제 버튼용)
+import Swal from 'sweetalert2';
 
-// 기본 색상 정의 (기존 코드)
 const defaultColors = ['#b9d5f2ff', '#f0cfe3ff', '#cbe5d3ff', '#D3DAEA', '#c4ace6ff'];
 
-export const AddCalendarModal = ({ onClose }) => {
-  // ✅ 2. 스토어에서 필요한 함수와 activeCalendar 가져오기
-  const {
-    activeCalendar,
-    startAddingCalendar,
-    startUpdatingCalendar, // (3단계에서 추가할 함수)
-    startDeletingCalendar, // (기존 함수)
-  } = useCalendarStore();
+// ✅ [신규] 캘린더 생성/수정 폼 필드 (코드 중복 제거용)
+// (기존 코드의 폼 UI 부분을 그대로 가져옴)
+const CalendarFormFields = ({ formState, onFormChange, colors, setColors, defaultColors }) => {
+  const [name, setName] = formState.name;
+  const [color, setColor] = formState.color;
+  const [memo, setMemo] = formState.memo;
 
-  const [name, setName] = useState('');
-  const [color, setColor] = useState(defaultColors[0]);
-  const [memo, setMemo] = useState('');
-  const [colors, setColors] = useState(defaultColors);
-
-  // (컬러 피커 관련 state 및 핸들러 ... 생략)
+  // (컬러 피커 관련 state 및 핸들러 ... 기존 코드와 동일)
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
   const addButtonRef = useRef(null);
+  const colorInputRef = useRef(null); // ref 추가
+
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (document.querySelector('.color-picker-popup')?.contains(e.target)) return;
@@ -36,6 +28,7 @@ export const AddCalendarModal = ({ onClose }) => {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
+
   const handleAddColorClick = (e) => {
     e.stopPropagation();
     const rect = addButtonRef.current.getBoundingClientRect();
@@ -47,6 +40,7 @@ export const AddCalendarModal = ({ onClose }) => {
     setPickerPosition({ top, left });
     setShowColorPicker((prev) => !prev);
   };
+
   const handleColorSelect = (e) => {
     const newColor = e.target.value;
     if (!colors.includes(newColor)) {
@@ -55,42 +49,116 @@ export const AddCalendarModal = ({ onClose }) => {
     setColor(newColor);
     setShowColorPicker(false);
   };
+
   const handleDeleteColor = (targetColor) => {
     if (defaultColors.includes(targetColor)) return;
     setColors((prev) => prev.filter((c) => c !== targetColor));
     if (color === targetColor) setColor(defaultColors[0]);
   };
 
+  return (
+    <>
+      <label className="modal-label">캘린더명</label>
+      <input
+        type="text" className="modal-input" value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="캘린더 이름을 입력하세요"
+        autoFocus
+      />
+      <label className="modal-label">색상</label>
+      <div className="color-options">
+        {colors.map((c, i) => (
+          <div key={i} className="color-wrapper">
+            <div
+              className={`color-circle ${color === c ? 'selected' : ''}`}
+              style={{ backgroundColor: c }}
+              onClick={() => setColor(c)}
+            />
+            {!defaultColors.includes(c) && (
+              <button
+                type="button" className="delete-btn"
+                onClick={() => handleDeleteColor(c)} title="삭제"
+              >✕</button>
+            )}
+          </div>
+        ))}
+        <div ref={addButtonRef} className="color-circle add" onClick={handleAddColorClick}>
+          <span>＋</span>
+        </div>
+        {showColorPicker && (
+          <div
+            className="color-picker-popup"
+            style={{ position: 'fixed', top: `${pickerPosition.top}px`, left: `${pickerPosition.left}px`, zIndex: 2000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input ref={colorInputRef} type="color" onChange={handleColorSelect} />
+          </div>
+        )}
+      </div>
+      <label className="modal-label">메모</label>
+      <textarea
+        className="modal-textarea" value={memo}
+        onChange={(e) => setMemo(e.target.value)}
+        placeholder="메모를 입력하세요"
+      ></textarea>
+    </>
+  );
+};
 
-  // ✅ 3. [신규] activeCalendar가 있으면 폼을 채우는 useEffect
+
+// ----------------------------------------------------
+// --- 메인 모달 컴포넌트 ---
+// ----------------------------------------------------
+export const AddCalendarModal = ({ onClose }) => {
+  // ✅ 2. 스토어 함수에 startJoiningCalendar 추가 (useCalendarStore.js에 구현 필요)
+  const {
+    activeCalendar,
+    startAddingCalendar,
+    startUpdatingCalendar, 
+    startDeletingCalendar, 
+    startJoiningCalendar, // ❗️ 이 함수를 useCalendarStore.js에 추가해야 합니다.
+  } = useCalendarStore();
+
+  // ✅ 3. [신규] 탭 모드 state ('create' 또는 'join')
+  const [mode, setMode] = useState('create');
+
+  // "생성/수정" 폼 state
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(defaultColors[0]);
+  const [memo, setMemo] = useState('');
+  const [colors, setColors] = useState(defaultColors);
+
+  // "공유 참여" 폼 state
+  const [joinForm, setJoinForm] = useState({
+    shareUrl: '',
+    password: '',
+  });
+
+  // (컬러 피커 관련 state ... 는 CalendarFormFields로 이동)
+
+  // ✅ 4. [수정] activeCalendar가 있으면 (수정 모드) 폼을 채움
   useEffect(() => {
     if (activeCalendar) {
-      // 수정 모드: 폼 채우기
       setName(activeCalendar.name);
       setColor(activeCalendar.color);
       setMemo(activeCalendar.memo || '');
-      // activeCalendar의 색상이 기본 색상표에 없으면 추가
       if (!colors.includes(activeCalendar.color)) {
         setColors((prev) => [...prev, activeCalendar.color]);
       }
-    } else {
-      // 생성 모드: 폼 비우기 (선택사항)
-      setName('');
-      setColor(defaultColors[0]);
-      setMemo('');
-    }
-  }, [activeCalendar]); // activeCalendar가 바뀔 때마다 실행
+    } 
+    // (activeCalendar가 null일 때 폼을 비우는 로직은
+    // '생성' 탭이 제출될 때로 이동)
+  }, [activeCalendar]);
 
-  // ✅ 4. [수정] 저장 또는 수정 핸들러
+  // "생성/수정" 제출 핸들러 (기존 handleSubmit)
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name.trim()) return alert('캘린더명을 입력하세요.');
+    if (!name.trim()) return Swal.fire('오류', '캘린더명을 입력하세요.', 'error');
 
     const calendarData = { name, color, memo };
 
     if (activeCalendar) {
       // 수정 모드
-      // (3단계에서 이 함수를 스토어에 추가해야 함)
       startUpdatingCalendar({ ...activeCalendar, ...calendarData }); 
     } else {
       // 생성 모드
@@ -99,10 +167,9 @@ export const AddCalendarModal = ({ onClose }) => {
     onClose();
   };
 
-  // ✅ 5. [신규] 삭제 핸들러
-  const handleDelete = async () => {
+  // "삭제" 핸들러 (기존 handleDelete)
+  const handleDelete = async () => { /* ... (기존 코드와 동일, 생략 없음) ... */ 
     if (!activeCalendar) return;
-
     const result = await Swal.fire({
       title: '캘린더를 삭제하시겠습니까?',
       text: '캘린더에 속한 모든 일정이 함께 삭제됩니다!',
@@ -113,16 +180,45 @@ export const AddCalendarModal = ({ onClose }) => {
       confirmButtonText: '삭제',
       cancelButtonText: '취소',
     });
-
     if (result.isConfirmed) {
-      // (이 함수는 스토어에 이미 존재함)
       startDeletingCalendar(activeCalendar.id || activeCalendar._id);
       onClose();
     }
   };
 
+  // ✅ 5. [신규] "공유 참여" 폼 핸들러
+  const onJoinInputChange = ({ target }) => {
+    setJoinForm({
+      ...joinForm,
+      [target.name]: target.value,
+    });
+  };
+
+  // ✅ 6. [신규] "공유 참여" 제출 핸들러
+  const onJoinSubmit = async (event) => {
+    event.preventDefault();
+    
+    let shareId = '';
+    try {
+      const urlParts = joinForm.shareUrl.split('/');
+      shareId = urlParts[urlParts.length - 1].split('?')[0]; 
+    } catch (e) {
+      shareId = joinForm.shareUrl; 
+    }
+
+    if (shareId.trim().length <= 0 || joinForm.password.trim().length <= 0) {
+      Swal.fire('오류', '공유 ID(링크)와 비밀번호를 모두 입력해주세요.', 'error');
+      return;
+    }
+
+    // useCalendarStore에 구현해야 할 함수 호출
+    await startJoiningCalendar(shareId, joinForm.password); 
+    onClose(); 
+  };
+
+
   const handleOverlayClick = () => {
-    setShowColorPicker(false);
+    // (기존 코드의 컬러피커 닫는 로직은 CalendarFormFields 내부로 이동)
     onClose();
   };
 
@@ -132,84 +228,116 @@ export const AddCalendarModal = ({ onClose }) => {
         className="modal-container"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ✅ 6. [수정] 제목 변경 */}
-        <h2 className="modal-title">
-          {activeCalendar ? '캘린더 수정' : '새 캘린더'}
-        </h2>
-        <hr className="modal-divider" />
-
-        <form onSubmit={handleSubmit}>
-          {/* (캘린더명, 색상 선택, 메모 ... 폼은 동일함 ... 생략) */}
-          <label className="modal-label">캘린더명</label>
-          <input
-            type="text" className="modal-input" value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="캘린더 이름을 입력하세요"
-          />
-          <label className="modal-label">색상</label>
-          <div className="color-options">
-            {colors.map((c, i) => (
-              <div key={i} className="color-wrapper">
-                <div
-                  className={`color-circle ${color === c ? 'selected' : ''}`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                />
-                {!defaultColors.includes(c) && (
-                  <button
-                    type="button" className="delete-btn"
-                    onClick={() => handleDeleteColor(c)} title="삭제"
-                  >✕</button>
-                )}
-              </div>
-            ))}
-            <div ref={addButtonRef} className="color-circle add" onClick={handleAddColorClick}>
-              <span>＋</span>
-            </div>
-            {showColorPicker && (
-              <div
-                className="color-picker-popup"
-                style={{ position: 'fixed', top: `${pickerPosition.top}px`, left: `${pickerPosition.left}px`, zIndex: 2000 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <input ref={colorInputRef} type="color" onChange={handleColorSelect} />
-              </div>
-            )}
-          </div>
-          <label className="modal-label">메모</label>
-          <textarea
-            className="modal-textarea" value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            placeholder="메모를 입력하세요"
-          ></textarea>
-
-          {/* ✅ 7. [수정] 버튼 영역 (삭제 버튼 추가) */}
-          <div className="modal-buttons">
-            {activeCalendar && (
+        
+        {/* === ✅ 7. [핵심] 모달 렌더링 분기 === */}
+        {!activeCalendar ? (
+          // ---------------------------------
+          // 1. "생성 / 참여" 모드 (activeCalendar가 null일 때)
+          // ---------------------------------
+          <>
+            <div className="modal-tabs">
               <button
-              type="button"
-              // ✅ className 수정
-              className="modal-btn danger" 
-              onClick={handleDelete}
-              style={{ marginRight: 'auto' }} 
-            >
-              삭제
-            </button>
+                className={`modal-tab-btn ${mode === 'create' ? 'active' : ''}`}
+                onClick={() => setMode('create')}
+              >
+                새 캘린더 생성
+              </button>
+              <button
+                className={`modal-tab-btn ${mode === 'join' ? 'active' : ''}`}
+                onClick={() => setMode('join')}
+              >
+                공유 캘린더 참여
+              </button>
+            </div>
+            <hr className="modal-divider" style={{ marginTop: 0 }} />
+
+            {/* --- "생성" 탭 --- */}
+            {mode === 'create' && (
+              <form onSubmit={handleSubmit}>
+                <CalendarFormFields
+                  formState={{ name: [name, setName], color: [color, setColor], memo: [memo, setMemo] }}
+                  colors={colors}
+                  setColors={setColors}
+                  defaultColors={defaultColors}
+                />
+                <div className="modal-buttons">
+                  <button type="button" className="modal-btn ghost" onClick={onClose}>
+                    취소
+                  </button>
+                  <button type="submit" className="save-btn">
+                    저장
+                  </button>
+                </div>
+              </form>
             )}
-            {/* 저장/취소 버튼은 자동으로 오른쪽 정렬됨 */}
-            <button
-            type="button"
-            // className="cancel-btn" // ❗️ 기존 클래스
-            className="modal-btn ghost" // ✅ 수정된 클래스
-            onClick={onClose}
-          >
-            취소
-          </button>
-            <button type="submit" className="save-btn">
-              저장
-            </button>
-          </div>
-        </form>
+
+            {/* --- "참여" 탭 --- */}
+            {mode === 'join' && (
+              <form onSubmit={onJoinSubmit}>
+                <label className="modal-label">공유 링크 또는 ID</label>
+                <input
+                  type="text"
+                  name="shareUrl"
+                  className="modal-input"
+                  placeholder="http://.../share-calendar/68f..."
+                  value={joinForm.shareUrl}
+                  onChange={onJoinInputChange}
+                  autoFocus
+                />
+                <label className="modal-label">비밀번호</label>
+                <input
+                  type="password"
+                  name="password"
+                  className="modal-input"
+                  value={joinForm.password}
+                  onChange={onJoinInputChange}
+                />
+                <div className="modal-buttons">
+                  <button type="button" className="modal-btn ghost" onClick={onClose}>
+                    취소
+                  </button>
+                  <button type="submit" className="save-btn">
+                    캘린더 추가
+                  </button>
+                </div>
+              </form>
+            )}
+          </>
+
+        ) : (
+          // ---------------------------------
+          // 2. "수정 / 삭제" 모드 (activeCalendar가 있을 때)
+          // ---------------------------------
+          <>
+            <h2 className="modal-title">캘린더 수정</h2>
+            <hr className="modal-divider" />
+            <form onSubmit={handleSubmit}>
+              <CalendarFormFields
+                formState={{ name: [name, setName], color: [color, setColor], memo: [memo, setMemo] }}
+                colors={colors}
+                setColors={setColors}
+                defaultColors={defaultColors}
+              />
+              <div className="modal-buttons">
+                <button
+                  type="button"
+                  className="modal-btn danger" 
+                  onClick={handleDelete}
+                  style={{ marginRight: 'auto' }} 
+                >
+                  삭제
+                </button>
+                <button type="button" className="modal-btn ghost" onClick={onClose}>
+                  취소
+                </button>
+                <button type="submit" className="save-btn">
+                  저장
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+        
       </div>
     </div>
   );
