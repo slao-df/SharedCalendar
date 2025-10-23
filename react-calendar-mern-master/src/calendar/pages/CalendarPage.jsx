@@ -137,12 +137,6 @@ export const CalendarPage = () => {
     return role === 'owner' || role === 'editor';
   };
 
-  useEffect(() => {
-    console.log('🔍 현재 로그인한 사용자:', user?.uid);
-    console.log('📅 전체 캘린더 목록:', calendars);
-    console.log('🟣 현재 activeEvent:', activeEvent);
-  }, [user, calendars, activeEvent]);
-
   // 모달 권한 계산
   const canModifyInModal = useMemo(() => {
     if (!user || !calendars || calendars.length === 0) return false;
