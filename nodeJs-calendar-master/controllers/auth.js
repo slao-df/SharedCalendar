@@ -4,7 +4,7 @@ const { validationResult } = require('express-validator');
 const User = require('../models/User');
 const { generateJWT } = require('../helpers/jwt');
 
-// 🔹 회원가입
+// 회원가입
 const createUser = async (req, res = response) => {
   const { email, password } = req.body;
 
@@ -45,7 +45,7 @@ const createUser = async (req, res = response) => {
   }
 };
 
-// 🔹 로그인
+// 로그인
 const loginUser = async (req, res = response) => {
   const { email, password } = req.body;
 
@@ -88,7 +88,7 @@ const loginUser = async (req, res = response) => {
   }
 };
 
-// 🔹 토큰 재검증 (재발급)
+// 토큰 재검증 (재발급)
 const revalidateToken = async (req, res = response) => {
   const { uid, name } = req;
 
