@@ -30,12 +30,8 @@ const userCanEdit = async (calendarId, userId) => {
   }
 };
 
-
-// -------------------------------------------------
-// 🔹 이벤트 컨트롤러 함수
-// -------------------------------------------------
-
-// 🔹 모든 이벤트 조회 (권한: 소유자, 편집자, 참여자)
+// 이벤트 컨트롤러 함수
+// 모든 이벤트 조회 (권한: 소유자, 편집자, 참여자)
 const getEvents = async (req, res) => {
   const userId = req.uid; 
 
@@ -63,13 +59,12 @@ const getEvents = async (req, res) => {
   }
 };
 
-// 🔹 새 이벤트 생성 (권한: 소유자, 편집자)
+// 새 이벤트 생성 (권한: 소유자, 편집자)
 const createEvent = async (req, res = response) => {
   const event = new Event(req.body);
   const userId = req.uid;
 
   try {
-    // ✅ [보안 수정]
     // 이 캘린더(event.calendar)에 현재 사용자(userId)가 쓸 권한이 있는지 확인
     const canEdit = await userCanEdit(event.calendar, userId);
     if (!canEdit) {
@@ -96,7 +91,7 @@ const createEvent = async (req, res = response) => {
   }
 };
 
-// 🔹 이벤트 수정 (권한: 소유자, 편집자)
+// 이벤트 수정 (권한: 소유자, 편집자)
 const updateEvent = async (req, res = response) => {
   const eventId = req.params.id;
   const uid = req.uid; // 현재 사용자 ID
@@ -111,8 +106,6 @@ const updateEvent = async (req, res = response) => {
       });
     }
 
-    // ✅ [보안 수정]
-    // 기존: (event.user.toString() !== uid) - 이벤트 생성자만 수정 가능 (X)
     // 변경: 이 이벤트가 속한 *캘린더*를 수정할 권한이 있는지 확인
     const canEdit = await userCanEdit(event.calendar, uid);
     if (!canEdit) {
@@ -147,7 +140,7 @@ const updateEvent = async (req, res = response) => {
   }
 };
 
-// 🔹 이벤트 삭제 (권한: 소유자, 편집자)
+// 이벤트 삭제 (권한: 소유자, 편집자)
 const deleteEvent = async (req, res) => {
     const eventId = req.params.id;
     const userId = req.uid; 
@@ -159,9 +152,7 @@ const deleteEvent = async (req, res) => {
         return res.status(404).json({ ok: false, msg: '이벤트를 찾을 수 없습니다.' });
       }
 
-      // ✅ [보안 수정]
-      // 기존: (event.user.toString() !== userId) - 이벤트 생성자만 삭제 가능 (X)
-      // 변경: 이 이벤트가 속한 *캘린더*를 삭제할 권한이 있는지 확인
+      // 이 이벤트가 속한 *캘린더*를 삭제할 권한이 있는지 확인
       const canEdit = await userCanEdit(event.calendar, userId);
       if (!canEdit) {
         return res.status(401).json({ ok: false, msg: '이 이벤트를 삭제할 권한이 없습니다.' });
@@ -177,10 +168,6 @@ const deleteEvent = async (req, res) => {
     }
   };
 
-
-// -------------------------------------------------
-// ✅ 모듈 exports
-// -------------------------------------------------
 module.exports = {
   getEvents,
   createEvent,
