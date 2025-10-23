@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// 🔹 MongoDB 데이터베이스 연결 함수
+// MongoDB 데이터베이스 연결 함수
 const dbConnection = async () => {
   try {
     await mongoose.connect(process.env.DB_CNN, {
