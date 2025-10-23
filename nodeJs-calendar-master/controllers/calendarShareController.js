@@ -213,6 +213,60 @@ const revokeEditPermission = async (req, res) => {
   }
 };
 
+const updateBulkPermissions = async (req, res) => {
+  const { id: calendarId } = req.params;
+  // changes 객체 예: { userId1: true, userId2: false } (true = 편집자 부여, false = 편집자 취소)
+  const { changes } = req.body; 
+  const userId = req.uid; // 요청자 (소유자여야 함)
+
+  if (!changes || typeof changes !== 'object' || Object.keys(changes).length === 0) {
+    return res.status(400).json({ ok: false, msg: '잘못된 요청입니다. 변경 사항이 없습니다.' });
+  }
+
+  try {
+    const calendar = await Calendar.findById(calendarId);
+    if (!calendar) return res.status(404).json({ ok: false, msg: '캘린더 없음' });
+
+    // 소유자만 변경 가능
+    if (calendar.user.toString() !== userId) {
+      return res.status(401).json({ ok: false, msg: '소유자만 권한 변경 가능' });
+    }
+
+    // 변경사항 적용 준비
+    const grantIds = []; // 편집 권한 부여할 ID 목록
+    const revokeIds = []; // 편집 권한 취소할 ID 목록
+
+    for (const participantId in changes) {
+      if (changes[participantId] === true) {
+        grantIds.push(participantId);
+      } else if (changes[participantId] === false) {
+        revokeIds.push(participantId);
+      }
+    }
+
+    // DB 업데이트 (두 작업을 동시에 실행)
+    await Promise.all([
+      // 권한 부여 ($addToSet: 중복 없이 추가)
+      grantIds.length > 0 ? Calendar.updateOne(
+        { _id: calendarId },
+        { $addToSet: { editors: { $each: grantIds } } }
+      ) : Promise.resolve(), // 작업 없으면 통과
+      
+      // 권한 취소 ($pull: 배열에서 제거)
+      revokeIds.length > 0 ? Calendar.updateOne(
+        { _id: calendarId },
+        { $pull: { editors: { $in: revokeIds } } }
+      ) : Promise.resolve() // 작업 없으면 통과
+    ]);
+    
+    res.json({ ok: true, msg: '권한이 성공적으로 저장되었습니다.' });
+
+  } catch (error) {
+    console.error('일괄 권한 업데이트 오류:', error);
+    res.status(500).json({ ok: false, msg: '서버 오류 발생' });
+  }
+};
+
 // ✅ 파일 맨 아래에서 모든 함수를 한 번에 export
 module.exports = {
   generateShareLink,
@@ -222,4 +276,5 @@ module.exports = {
   verifyAndAttachSharedCalendar, // (수정 필요)
   grantEditPermission, 
   revokeEditPermission,
+  updateBulkPermissions,
 };
