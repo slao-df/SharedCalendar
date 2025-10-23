@@ -22,6 +22,7 @@ const {
   joinSharedCalendar,
   grantEditPermission,
   revokeEditPermission,
+  updateBulkPermissions,
 } = require('../controllers/calendarShareController');
 
 
@@ -91,4 +92,6 @@ router.post('/:id/permissions', grantEditPermission);
 //  axios 등은 body와 함께 DELETE 요청 가능)
 router.delete('/:id/permissions', revokeEditPermission);
 
+//여러 참여자 권한 일괄 변경
+router.put('/:id/permissions/bulk', updateBulkPermissions);
 module.exports = router;
