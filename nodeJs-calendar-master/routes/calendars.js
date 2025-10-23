@@ -77,7 +77,7 @@ router.get('/:id/share', getShareInfo);
 router.post('/:id/share/regenerate', regenerateShareCredentials);
 
 // 공유 링크로 참여
-router.post("/join/:shareId", joinSharedCalendar);
+router.post("/share/:shareId", joinSharedCalendar);
 
 // (이전 버전 호환용 - 필요시 유지)
 router.post('/shared/:token/verify', verifyAndAttachSharedCalendar);
