@@ -1,7 +1,7 @@
 const { response } = require('express');
 const jwt = require('jsonwebtoken');
 
-// 🔹 JWT 유효성 검사 미들웨어
+// JWT 유효성 검사 미들웨어
 const validateJWT = (req, res = response, next) => {
   // 요청 헤더에서 토큰 가져오기
   const token = req.header('x-token');
