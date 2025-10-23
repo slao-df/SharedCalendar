@@ -8,12 +8,11 @@ export const ShareCalendarModal = ({ calendarId, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // 🔹 공유 정보 불러오기 (기존 정보 있으면 그대로 표시)
+  // 공유 정보 불러오기
   const fetchShareInfo = async () => {
     try {
       const { data } = await calendarApi.get(`/calendars/${calendarId}/share`);
-      
-      console.log('✅ API 응답 (getShareInfo):', data);
+
       if (data.ok) {
         setShareLink(data.shareUrl);
         setPassword(data.sharePassword);
@@ -28,12 +27,11 @@ export const ShareCalendarModal = ({ calendarId, onClose }) => {
     }
   };
 
-  // 🔹 모달 열릴 때 실행
   useEffect(() => {
     fetchShareInfo();
   }, [calendarId]);
 
-  // 🔹 비밀번호 수정 저장
+  // 비밀번호 저장
   const handleSave = async () => {
     if (!password || password.trim().length < 4) {
       alert("비밀번호를 4자 이상 입력해주세요.");
@@ -42,17 +40,14 @@ export const ShareCalendarModal = ({ calendarId, onClose }) => {
 
     try {
       setSaving(true);
-      
-      // ✅ [수정] PUT을 다시 POST로 변경합니다.
-      // const { data } = await calendarApi.put(`/calendars/${calendarId}/share`, { password }); // (PUT 아님)
-      const { data } = await calendarApi.post(`/calendars/${calendarId}/share`, { password }); // ✅ POST 사용
-      
+      const { data } = await calendarApi.post(`/calendars/${calendarId}/share`, { password });
+
       if (data.ok) {
-        alert("✅ 비밀번호가 성공적으로 변경되었습니다.");
-        // (선택) 변경된 비밀번호를 state에 다시 반영
         setPassword(data.sharePassword);
+        setShareLink(data.shareUrl); // ✅ 저장 후 즉시 링크 갱신
+        alert("✅ 비밀번호가 저장되었습니다.");
       } else {
-        alert("비밀번호 저장 실패: " + (data.msg || ''));
+        alert("비밀번호 저장 실패: " + (data.msg || ""));
       }
     } catch (error) {
       console.error("❌ 비밀번호 저장 오류:", error);
@@ -62,16 +57,23 @@ export const ShareCalendarModal = ({ calendarId, onClose }) => {
     }
   };
 
-  // 🔹 복사 기능
+  // 복사 기능
   const handleCopy = () => {
     navigator.clipboard.writeText(`링크: ${shareLink}\n비밀번호: ${password}`);
     alert("공유 링크와 비밀번호가 복사되었습니다.");
   };
 
+  // 오버레이 클릭 시 닫기 (배경 클릭 감지)
+  const handleOverlayClick = (e) => {
+    if (e.target.classList.contains("share-modal-overlay")) {
+      onClose();
+    }
+  };
+
   if (loading) {
     return (
-      <div className="share-modal-overlay">
-        <div className="share-modal">
+      <div className="share-modal-overlay" onClick={handleOverlayClick}>
+        <div className="share-modal" onClick={(e) => e.stopPropagation()}>
           <h3 className="share-modal-title">📅 캘린더 공유</h3>
           <p style={{ textAlign: "center" }}>로딩 중...</p>
         </div>
@@ -80,8 +82,8 @@ export const ShareCalendarModal = ({ calendarId, onClose }) => {
   }
 
   return (
-    <div className="share-modal-overlay">
-      <div className="share-modal">
+    <div className="share-modal-overlay" onClick={handleOverlayClick}>
+      <div className="share-modal" onClick={(e) => e.stopPropagation()}>
         <h3 className="share-modal-title">캘린더 공유</h3>
 
         <div className="share-result">
