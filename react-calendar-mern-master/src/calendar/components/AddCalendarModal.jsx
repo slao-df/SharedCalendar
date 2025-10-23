@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect } from 'react';
-// ✅ 1. useCalendarStore 임포트
 import { useCalendarStore } from '../../hooks/useCalendarStore';
 import { useAuthStore } from '../../hooks';
 import './AddCalendarModal.css';
@@ -7,8 +6,7 @@ import Swal from 'sweetalert2';
 
 const defaultColors = ['#b9d5f2ff', '#f0cfe3ff', '#cbe5d3ff', '#D3DAEA', '#c4ace6ff'];
 
-// ✅ [신규] 캘린더 생성/수정 폼 필드 (코드 중복 제거용)
-// (기존 코드의 폼 UI 부분을 그대로 가져옴)
+// 캘린더 생성/수정 폼 필드 (코드 중복 제거용)
 const CalendarFormFields = ({ formState, onFormChange, colors, setColors, defaultColors }) => {
   const [name, setName] = formState.name;
   const [color, setColor] = formState.color;
@@ -117,10 +115,10 @@ export const AddCalendarModal = ({ onClose }) => {
     startAddingCalendar,
     startUpdatingCalendar, 
     startDeletingCalendar, 
-    startJoiningCalendar, // ❗️ 이 함수를 useCalendarStore.js에 추가해야 합니다.
+    startJoiningCalendar,
   } = useCalendarStore();
 
-  // ✅ 3. [신규] 탭 모드 state ('create' 또는 'join')
+  //탭 모드 state ('create' 또는 'join')
   const [mode, setMode] = useState('create');
 
   // "생성/수정" 폼 state
@@ -135,10 +133,9 @@ export const AddCalendarModal = ({ onClose }) => {
     password: '',
   });
 
-  // (컬러 피커 관련 state ... 는 CalendarFormFields로 이동)
    // 현재 내가 수정 중인 캘린더의 소유자인지 확인
   const isOwnerOfActiveCalendar = activeCalendar && (activeCalendar.user?._id || activeCalendar.user) === user.uid;
-  // ✅ 4. [수정] activeCalendar가 있으면 (수정 모드) 폼을 채움
+  //  activeCalendar가 있으면 (수정 모드) 폼을 채움
   useEffect(() => {
     if (activeCalendar) {
       setName(activeCalendar.name);
@@ -188,7 +185,7 @@ export const AddCalendarModal = ({ onClose }) => {
     }
   };
 
-  // ✅ 5. [신규] "공유 참여" 폼 핸들러
+  //"공유 참여" 폼 핸들러
   const onJoinInputChange = ({ target }) => {
     setJoinForm({
       ...joinForm,
@@ -196,7 +193,7 @@ export const AddCalendarModal = ({ onClose }) => {
     });
   };
 
-  // ✅ 6. [신규] "공유 참여" 제출 핸들러
+  // "공유 참여" 제출 핸들러
   const onJoinSubmit = async (event) => {
     event.preventDefault();
     
@@ -230,8 +227,7 @@ export const AddCalendarModal = ({ onClose }) => {
         className="modal-container"
         onClick={(e) => e.stopPropagation()}
       >
-        
-        {/* === ✅ 7. [핵심] 모달 렌더링 분기 === */}
+
         {!activeCalendar ? (
           // "생성 / 참여" 모드 (activeCalendar가 null일 때)
           <>
@@ -259,14 +255,21 @@ export const AddCalendarModal = ({ onClose }) => {
                   colors={colors}
                   setColors={setColors}
                   defaultColors={defaultColors}
-                  // ✅ [추가] 소유자가 아닐 경우 필드 비활성화
+                  // 소유자가 아닐 경우 필드 비활성화
                   disabled={!isOwnerOfActiveCalendar}
                 />
                 <div className="modal-buttons">
                   <button type="button" className="modal-btn ghost" onClick={onClose}>
                     취소
                   </button>
-                  <button type="submit" className="save-btn" disabled={!isOwnerOfActiveCalendar}>
+                  
+                  {/* <button type="button" className="save-btn" disabled={!isOwnerOfActiveCalendar}> */}
+                  <button
+                    type="button"
+                    className="save-btn"
+                    onClick={handleSubmit}
+                    disabled={false}                     // 새 캘린더 생성은 항상 가능
+                  >
                     저장
                   </button>
                 </div>
@@ -307,9 +310,7 @@ export const AddCalendarModal = ({ onClose }) => {
           </>
 
         ) : (
-          // ---------------------------------
-          // 2. "수정 / 삭제" 모드 (activeCalendar가 있을 때)
-          // ---------------------------------
+          //  "수정 / 삭제" 모드 (activeCalendar가 있을 때)
           <>
             <h2 className="modal-title">캘린더 수정</h2>
             <hr className="modal-divider" />
