@@ -47,63 +47,63 @@ const generateShareLink = async (req, res) => {
 
 /** ✅ 공유 캘린더 참여 (비밀번호 입력 → 내 계정에 추가) */
 const joinSharedCalendar = async (req, res) => {
-  const { shareId } = req.params; // URL에서 받은 원본 캘린더의 ID
-  const { password } = req.body; // 사용자가 입력한 비밀번호
-  const userId = req.uid; // 참여하려는 사용자 (현재 로그인된 사용자)
+  const { shareId } = req.params; // URL에서 받은 원본 캘린더의 ID
+  const { password } = req.body; // 사용자가 입력한 비밀번호
+  const userId = req.uid; // 참여하려는 사용자 (현재 로그인된 사용자)
 
-  try {
-    // 1. shareId로 원본 캘린더를 찾습니다.
-    const originalCalendar = await Calendar.findById(shareId);
+  try {
+    // 1. shareId로 원본 캘린더를 찾습니다.
+    const originalCalendar = await Calendar.findById(shareId);
 
-    // 2. 유효성 검사
-    if (!originalCalendar || !originalCalendar.shareLink) {
-      return res.status(404).json({ ok: false, msg: '공유 정보를 찾을 수 없습니다.' });
-    }
-    if (originalCalendar.sharePassword !== password) {
-      return res.status(401).json({ ok: false, msg: '비밀번호가 일치하지 않습니다.' });
-    }
-    if (originalCalendar.user.toString() === userId) {
-      return res.status(400).json({ ok: false, msg: '자신의 캘린더에는 참여할 수 없습니다.' });
-    }
+    // 2. 유효성 검사
+    if (!originalCalendar || !originalCalendar.shareLink) {
+      return res.status(404).json({ ok: false, msg: '공유 정보를 찾을 수 없습니다.' });
+    }
+    if (originalCalendar.sharePassword !== password) {
+      return res.status(401).json({ ok: false, msg: '비밀번호가 일치하지 않습니다.' });
+    }
+    if (originalCalendar.user.toString() === userId) {
+      return res.status(400).json({ ok: false, msg: '자신의 캘린더에는 참여할 수 없습니다.' });
+    }
 
-    // 3. 이미 참여 중인지 확인
-    if (originalCalendar.participants.includes(userId)) {
-        return res.status(200).json({
-            ok: true,
-            msg: '이미 참여 중인 캘린더입니다.',
+    // 3. 이미 참여 중인지 확인
+    if (originalCalendar.participants.includes(userId)) {
+        return res.status(200).json({
+            ok: true,
+            msg: '이미 참여 중인 캘린더입니다.',
             // (참고) 이 경우에도 이미 생성된 캘린더를 찾아서 반환하는 것이 좋습니다.
             // (지금은 일단 에러 수정에 집중)
-        });
-    }
+        });
+    }
 
-    // 4. [핵심 로직] 원본 캘린더에 participants 추가
-    originalCalendar.participants.push(userId);
-    await originalCalendar.save(); // 변경 사항을 DB에 저장
+    // 4. [핵심 로직] 원본 캘린더에 participants 추가
+    originalCalendar.participants.push(userId);
+    await originalCalendar.save(); // 변경 사항을 DB에 저장
 
     // 5. 참여자를 위한 새 캘린더 문서 생성
-    const newCalendar = new Calendar({
-      name: `[공유] ${originalCalendar.name}`, 
-      color: originalCalendar.color,
-      memo: originalCalendar.memo,
-      user: userId, // 참여자 ID
-      originalCalendarId: originalCalendar._id // 원본 ID
-    });
+    const newCalendar = new Calendar({
+      name: `[공유] ${originalCalendar.name}`, 
+      color: originalCalendar.color,
+      memo: originalCalendar.memo,
+      user: userId, // 참여자 ID
+      originalCalendarId: originalCalendar._id // 원본 ID
+    });
 
     // ✅ [수정 1] 새 캘린더를 데이터베이스에 저장합니다.
     await newCalendar.save();
 
-    // 6. 성공 응답 전송
-    return res.json({
-      ok: true,
-      msg: '캘린더에 성공적으로 참여했습니다.',
+    // 6. 성공 응답 전송
+    return res.json({
+      ok: true,
+      msg: '캘린더에 성공적으로 참여했습니다.',
       // ✅ [수정 2] 저장된 새 캘린더 객체를 반환합니다.
       // (Mongoose가 .save() 후 반환된 객체에는 _id, createdAt, updatedAt이 포함됩니다)
       calendar: newCalendar 
-    });
-  } catch (error) {
-    console.error('❌ 공유 캘린더 참여 오류:', error);
-    res.status(500).json({ ok: false, msg: '공유 캘린더 참여에 실패했습니다.' });
-  }
+    });
+  } catch (error) {
+    console.error('❌ 공유 캘린더 참여 오류:', error);
+    res.status(500).json({ ok: false, msg: '공유 캘린더 참여에 실패했습니다.' });
+  }
 };
 
 /** ✅ 공유 정보 조회 (링크, 비밀번호) */
