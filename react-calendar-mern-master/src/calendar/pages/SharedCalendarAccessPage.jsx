@@ -10,13 +10,13 @@ export const SharedCalendarAccessPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // ✅ 로그인된 사용자 정보
+  // 로그인된 사용자 정보
   const { user } = useSelector((state) => state.auth);
 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ 공유 캘린더 접근 처리
+  // 공유 캘린더 접근 처리
   const handleJoin = async (e) => {
     e.preventDefault();
 
