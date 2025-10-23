@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-// 🔹 JWT 토큰 생성 함수
+// JWT 토큰 생성 함수
 const generateJWT = (uid, name) => {
   return new Promise((resolve, reject) => {
     const payload = { uid, name };
