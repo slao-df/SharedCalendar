@@ -1,7 +1,7 @@
 const { response } = require('express');
 const { validationResult } = require('express-validator');
 
-// 🔹 요청 데이터 유효성 검사 미들웨어
+// 요청 데이터 유효성 검사 미들웨어
 const validateFields = (req, res = response, next) => {
   const errors = validationResult(req);
 
