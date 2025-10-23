@@ -8,10 +8,10 @@ const { v4: uuidv4 } = require('uuid'); // uuid 임포트
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-/** ✅ 공유 링크 생성/수정 (비밀번호 저장) */
+/** 공유 링크 생성/수정 (비밀번호 저장) */
 const generateShareLink = async (req, res) => {
   const { id: calendarId } = req.params;
-  const { password } = req.body; // 프론트엔드에서 보낸 비밀번호
+  const { password } = req.body || {}; // 비밀번호는 선택적
   const userId = req.uid;
 
   try {
@@ -20,32 +20,40 @@ const generateShareLink = async (req, res) => {
     if (!calendar) {
       return res.status(404).json({ ok: false, msg: '캘린더를 찾을 수 없습니다.' });
     }
+
+    // 권한 검사
     if (calendar.user.toString() !== userId) {
       return res.status(401).json({ ok: false, msg: '권한이 없습니다.' });
     }
 
-    // shareId 대신 calendar ID를 사용한 링크 생성
-    const shareUrl = `${FRONTEND_URL}/share-calendar/${calendar.id}`; // 또는 calendar._id
+    // 공유 링크가 없다면 자동 생성
+    if (!calendar.shareLink) {
+      calendar.shareLink = `${FRONTEND_URL}/share-calendar/${calendar.id}`;
+    }
 
-    // 모델 스키마에 정의된 최상위 필드에 직접 저장
-    calendar.shareLink = shareUrl;
-    calendar.sharePassword = password; // 요청받은 비밀번호로 저장
+    // 비밀번호가 있으면 새로 설정, 없으면 기존 유지
+    if (password !== undefined && password !== null && password !== '') {
+      calendar.sharePassword = password;
+    }
 
-    await calendar.save(); // DB에 저장
+    await calendar.save();
 
     res.json({
       ok: true,
-      shareUrl: shareUrl,
-      sharePassword: password, // 저장된 비밀번호 반환
+      msg: password
+        ? '공유 링크와 비밀번호가 저장되었습니다.'
+        : '공유 링크가 자동으로 생성되었습니다.',
+      shareUrl: calendar.shareLink,
+      sharePassword: calendar.sharePassword || '', // 기존 비밀번호도 반환
     });
-
   } catch (error) {
     console.error(`❌ 공유 링크 생성/수정 오류 (캘린더 ID: ${calendarId}):`, error);
     res.status(500).json({ ok: false, msg: '서버 오류 발생' });
   }
 };
 
-/** ✅ 공유 캘린더 참여 (비밀번호 입력 → 내 계정에 추가) */
+
+/** 공유 캘린더 참여 (비밀번호 입력 → 내 계정에 추가) */
 const joinSharedCalendar = async (req, res) => {
   const { shareId } = req.params; // URL에서 받은 원본 캘린더의 ID
   const { password } = req.body; // 사용자가 입력한 비밀번호
@@ -89,14 +97,14 @@ const joinSharedCalendar = async (req, res) => {
       originalCalendarId: originalCalendar._id // 원본 ID
     });
 
-    // ✅ [수정 1] 새 캘린더를 데이터베이스에 저장합니다.
+    // 새 캘린더를 데이터베이스에 저장합니다.
     await newCalendar.save();
 
     // 6. 성공 응답 전송
     return res.json({
       ok: true,
       msg: '캘린더에 성공적으로 참여했습니다.',
-      // ✅ [수정 2] 저장된 새 캘린더 객체를 반환합니다.
+      // 저장된 새 캘린더 객체를 반환합니다.
       // (Mongoose가 .save() 후 반환된 객체에는 _id, createdAt, updatedAt이 포함됩니다)
       calendar: newCalendar 
     });
@@ -106,7 +114,7 @@ const joinSharedCalendar = async (req, res) => {
   }
 };
 
-/** ✅ 공유 정보 조회 (링크, 비밀번호) */
+/**  공유 정보 조회 (링크, 비밀번호) */
 const getShareInfo = async (req, res) => {
   const { id } = req.params; // 캘린더 ID
   const uid = req.uid; // 사용자 ID
@@ -186,7 +194,7 @@ const grantEditPermission = async (req, res) => {
   }
 };
 
-/** ✅ [신규] 캘린더 편집 권한 취소 */
+/** 캘린더 편집 권한 취소 */
 const revokeEditPermission = async (req, res) => {
   const { id: calendarId } = req.params; // 원본 캘린더 ID
   const { participantId } = req.body; // 권한을 뺏을 유저 ID (예: user2)
@@ -267,7 +275,6 @@ const updateBulkPermissions = async (req, res) => {
   }
 };
 
-// ✅ 파일 맨 아래에서 모든 함수를 한 번에 export
 module.exports = {
   generateShareLink,
   getShareInfo,
